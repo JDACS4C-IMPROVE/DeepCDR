@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH --job-name=tf_DeepCDR_class_attempt1
+#SBATCH --ntasks=16
+#SBATCH --mem=64g
+#SBATCH --time=24:00:00
+#SBATCH --error=DeepCDR_job_class_1_02062023.%J.err
+#SBATCH --output=DeepCDR_job_class_1_02062023.%J.out
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu
+
+module purge
+module load anaconda
+conda activate $COMMON/tf_customenv1
+
+python DeepCDR_classification_attempt1.py -gpu_id 0 -use_mut True -use_gexp True -use_methy True.py -gpu_id 0 -use_mut True -use_gexp True -use_methy True.py -gpu_id 0 -use_mut True -use_gexp True -use_methy True
