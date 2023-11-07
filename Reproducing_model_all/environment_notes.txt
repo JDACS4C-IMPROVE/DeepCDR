@@ -1,0 +1,28 @@
+# note on environment and required directories.
+
+Follow the below steps to preprocess the data, train the DeepCDR model and infer based on the trained model.
+
+The previous code by the original authors has been adjusted to accoodate newer version of packages.
+package install
+
+1. Install packages using the tf_env_2.yml file. - (Running into issues however).
+To do this you can do "conda env create -f tf_env_2.yml -n env_name"
+
+2. If you fail to create the environment with the yml file, use the below lines in the terminal.
+
+conda create -n DeepCDR_env
+conda install tensorflow==2.13.1
+pip install scikit-learn==1.3.2
+pip install pandas
+pip install rdkit 
+pip install deepchem 
+pip install matplotlib
+
+The version for pandas is 2.1.2, deepchem is 2.5.0, and rdkit is 2023.9.1, and matplotlib is 3.8.1
+
+
+
+
+Also create a directory namd "Models" for saving the models. 
+You will also need to store the csa_data in the working directory
+and have the improve_utils.py file working directory.
