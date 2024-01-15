@@ -1,18 +1,7 @@
 import tensorflow as tf
 physical_devices = tf.config.list_physical_devices('GPU')
-print(physical_devices)
-# try:
-#     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-#     print(physical_devices[0], flush = True)
-    
-# except:
-#   # Invalid device or cannot modify virtual devices once initialized.
-#   pass
-
 import pickle
 import numpy as np
-# import matplotlib.pyplot as plt
-import improve_utils as iu
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 from scipy.stats import pearsonr
@@ -24,11 +13,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict
-
-import numpy as np
-import pandas as pd
 import joblib
-
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler, RobustScaler
 
 # IMPROVE imports
@@ -197,7 +182,8 @@ cancer_gen_expr_model.save(os.path.join(directory, "cancer_gen_expr_model"))
 cancer_gen_mut_model.save(os.path.join(directory,"cancer_gen_mut_model"))
 cancer_dna_methy_model.save(os.path.join(directory, "cancer_dna_methy_model"))
 
-all_smiles = iu.load_smiles_data()
+# reset index of the smiles file
+all_smiles = all_smiles.reset_index()
 
 def NormalizeAdj(adj):
     adj = adj + np.eye(adj.shape[0])
@@ -236,7 +222,7 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms):
     return [feat,adj_mat]
 
 atom_list = []
-for i, smiles in enumerate(all_smiles["smiles"].values):
+for i, smiles in enumerate(all_smiles["canSMILES"].values):
     # print(each)
     molecules=[]
     molecules.append(Chem.MolFromSmiles(smiles))
@@ -250,9 +236,8 @@ Max_atoms = np.max(atom_list)
 israndom = False
 
 dict_features = {}
-# dict_num_atoms = {}
 dict_adj_mat = {}
-for i, smiles in enumerate(all_smiles["smiles"].values):
+for i, smiles in enumerate(all_smiles["canSMILES"].values):
     # print(each)
     molecules=[]
     molecules.append(Chem.MolFromSmiles(smiles))
@@ -264,7 +249,6 @@ for i, smiles in enumerate(all_smiles["smiles"].values):
     l = CalculateGraphFeat(features,adj_list, Max_atoms)
     dict_features[str(drug_id_cur)] = l[0]
     dict_adj_mat[str(drug_id_cur)] = l[1]
-
 
 with open(os.path.join(directory, "drug_features.pickle"), "wb") as f:
     pickle.dump(dict_features, f)
