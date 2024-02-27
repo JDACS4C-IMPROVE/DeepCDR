@@ -5,4 +5,4 @@ To create the conda environment with the required packages, use the <code>conda_
 
 The preprocess, train, and infer scripts are in <code>DeepCDR_preprocess_improve.py</code>, <code>DeepCDR_train_improve.py</code>, and <code>DeepCDR_infer_improve.py</code> files. 
 
-The cross-study analysis is in the <code>CSA_all_splits.py file. 
+The cross-study analysis is in the <code>CSA_all_splits.py</code> file. 
