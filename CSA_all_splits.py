@@ -16,7 +16,7 @@ from improve import framework as frm
 # GraphDRP imports
 # TODO: change this for your model
 import DeepCDR_preprocess_improve
-import DeepCR_train_improve
+import DeepCDR_train_improve
 import DeepCDR_infer_improve
 
 class Timer:
