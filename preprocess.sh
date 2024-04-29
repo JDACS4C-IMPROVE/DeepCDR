@@ -10,7 +10,7 @@
 ### Path and Name to your CANDLEized model's main Python script###
 
 # e.g. CANDLE_MODEL=graphdrp_preprocess.py
-CANDLE_MODEL_SCRIPT=DeepCDR_preprocess_improve.py
+CANDLE_MODEL_SCRIPT=preprocess_with_data_loader.py
 
 # Set env if CANDLE_MODEL is not in same directory as this script
 IMPROVE_MODEL_DIR=${IMPROVE_MODEL_DIR:-$( dirname -- "$0" )}
