@@ -2,9 +2,9 @@
 model_name = "DeepCDR"
 
 [Preprocess]
-train_split_file = "gCSI_split_4_train.txt"
-val_split_file = "gCSI_split_4_val.txt"
-test_split_file = "gCSI_split_4_test.txt"
+train_split_file = "GDSCv1_split_4_train.txt"
+val_split_file = "GDSCv1_split_4_val.txt"
+test_split_file = "GDSCv1_split_4_test.txt"
 ml_data_outdir = "auc_dl/ml_data/gCSI-gCSI/split_4"
 data_format = ".csv"
 y_data_files = [["response.tsv"]]
