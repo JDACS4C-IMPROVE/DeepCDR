@@ -14,6 +14,7 @@ from typing import Dict
 import joblib
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler, RobustScaler
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 # IMPROVE imports
 from improve import framework as frm
 from improve import drug_resp_pred as drp

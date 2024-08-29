@@ -13,6 +13,8 @@ from typing import Dict, Union
 from improve import framework as frm
 from create_data_generator import data_generator, batch_predict
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
 filepath = Path(__file__).resolve().parent
 
 app_preproc_params = [
