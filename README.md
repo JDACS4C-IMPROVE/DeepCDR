@@ -131,30 +131,17 @@ ml_data
 python deepcdr_train_improve.py
 ```
 
-Trains GraphDRP using the model input data: `train_data.pt` (training), `val_data.pt` (for early stopping).
+Trains GraphDRP using the model input data generated in the previous step.
 
 Generates:
-* trained model: `model.pt`
+* trained model: `DeepCDR_on_GDSCv1_with_data_loader`
 * predictions on val data (tabular data): `val_y_data_predicted.csv`
 * prediction performance scores on val data: `val_scores.json`
 ```
 out_models
 └── CCLE
     └── split_0
-        ├── best -> /lambda_stor/data/apartin/projects/IMPROVE/pan-models/GraphDRP/out_models/GDSCv1/split_0/epochs/002
-        ├── epochs
-        │   ├── 001
-        │   │   ├── ckpt-info.json
-        │   │   └── model.h5
-        │   └── 002
-        │       ├── ckpt-info.json
-        │       └── model.h5
-        ├── last -> /lambda_stor/data/apartin/projects/IMPROVE/pan-models/GraphDRP/out_models/GDSCv1/split_0/epochs/002
-        ├── model.pt
-        ├── out_models
-        │   └── CCLE
-        │       └── split_0
-        │           └── ckpt.log
+        ├── DeepCDR_on_GDSCv1_with_data_loader
         ├── val_scores.json
         └── val_y_data_predicted.csv
 ```
