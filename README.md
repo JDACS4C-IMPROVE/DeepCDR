@@ -108,21 +108,21 @@ python deepcdr_preprocess_improve.py
 Preprocesses the CSA data and creates train, validation (val), and test datasets.
 
 Generates:
-* three model input data files: `train_data.pt`, `val_data.pt`, `test_data.pt`
+* five model input data files: `cancer_dna_methy_model`, `cancer_gen_expr_model`, `cancer_gen_mut_model`, `drug_features.pickle`, `norm_adj_mat.pickle`
 * three tabular data files, each containing the drug response values (i.e. AUC) and corresponding metadata: `train_y_data.csv`, `val_y_data.csv`, `test_y_data.csv`
 
 ```
 ml_data
 └── CCLE-CCLE
     └── split_0
-        ├── processed
-        │   ├── test_data.pt
-        │   ├── train_data.pt
-        │   └── val_data.pt
+        ├── cancer_dna_methy_model
+        ├── cancer_gen_expr_model
+        ├── cancer_gen_mut_model
         ├── test_y_data.csv
         ├── train_y_data.csv
         ├── val_y_data.csv
-        └── x_data_gene_expression_scaler.gz
+        ├── drug_features.pickle
+        └── norm_adj_mat.pickle
 ```
 
 
