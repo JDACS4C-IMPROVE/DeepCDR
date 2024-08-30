@@ -70,7 +70,7 @@ Note that `original_work` folder contains data files and scripts used to train a
 
 ### 1. Clone the model repository
 ```
-git clone [git@github.com:JDACS4C-IMPROVE/GraphDRP.git](https://github.com/JDACS4C-IMPROVE/DeepCDR.git)
+git clone https://github.com/JDACS4C-IMPROVE/DeepCDR.git
 cd GraphDRP
 git checkout develop
 ```
