@@ -134,14 +134,14 @@ python deepcdr_train_improve.py
 Trains GraphDRP using the model input data generated in the previous step.
 
 Generates:
-* trained model: `DeepCDR_on_GDSCv1_with_data_loader`
+* trained model: `DeepCDR_model`
 * predictions on val data (tabular data): `val_y_data_predicted.csv`
 * prediction performance scores on val data: `val_scores.json`
 ```
 out_models
 └── CCLE
     └── split_0
-        ├── DeepCDR_on_GDSCv1_with_data_loader
+        ├── DeepCDR_model
         ├── val_scores.json
         └── val_y_data_predicted.csv
 ```
