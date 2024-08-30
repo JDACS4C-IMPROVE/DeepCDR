@@ -280,7 +280,7 @@ def run(params):
     val_scores = frm.compute_performace_scores( params, y_true=y_val_true, y_pred=y_val_preds, stage="val",outdir=modelpath, metrics=metrics_list)
 
     # # save the model in the created model directory
-    check.save(os.path.join(modelpath, "DeepCDR_on_GDSCv1_with_data_loader"))
+    check.save(os.path.join(modelpath, "DeepCDR_model"))
 
     return val_scores
 
