@@ -158,7 +158,7 @@ def main(args):
     additional_definitions = preprocess_params + train_params + infer_params
     params = frm.initialize_parameters(
         filepath,
-        default_model="params_data_loader_CTRPv2.txt",
+        default_model="deepcdr_params.txt",
         additional_definitions=additional_definitions,
         required=None,
     )
