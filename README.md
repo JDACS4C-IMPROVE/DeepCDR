@@ -126,12 +126,12 @@ ml_data
 ```
 
 
-### 5. Train GraphDRP model
+### 5. Train DeepCDR model
 ```bash
 python deepcdr_train_improve.py
 ```
 
-Trains GraphDRP using the model input data generated in the previous step.
+Trains DeepCDR using the model input data generated in the previous step.
 
 Generates:
 * trained model: `DeepCDR_model`
