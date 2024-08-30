@@ -121,7 +121,7 @@ def run(params):
     model_path = frm.build_model_path(params, model_dir=params["model_dir"])
     model_path = os.path.dirname(model_path)
     print("Model path", model_path)
-    model_path = os.path.join(model_path, "DeepCDR_on_GDSCv1_with_data_loader")
+    model_path = os.path.join(model_path, "DeepCDR_model")
     check = tf.keras.models.load_model(model_path)
 
     # # get the predictions on the test set
