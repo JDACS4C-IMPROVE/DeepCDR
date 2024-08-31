@@ -148,7 +148,10 @@ out_models
 
 
 ### 6. Run inference on test data with the trained model
-```python deepcdr_infer_improve.py```
+
+```bash
+python deepcdr_infer_improve.py
+```
 
 Evaluates the performance on a test dataset with the trained model.
 
