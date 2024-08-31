@@ -72,7 +72,7 @@ Note that `original_work` folder contains data files and scripts used to train a
 ```
 git clone https://github.com/JDACS4C-IMPROVE/DeepCDR.git
 cd DeepCDR
-git checkout develop
+git checkout v0.0.3-beta
 ```
 
 
