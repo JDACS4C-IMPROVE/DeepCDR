@@ -13,9 +13,9 @@ x_data_drug_files = [["drug_SMILES.tsv"]]
 [Train]
 data_format = .csv
 model_file_name = DeepCDR_model
-model_file_format = []
+model_file_format = 
 
 [Infer]
 data_format = .csv
 model_file_name = DeepCDR_model
-model_file_format = []
+model_file_format = 
