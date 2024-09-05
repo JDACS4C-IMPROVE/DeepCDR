@@ -81,10 +81,9 @@ Use the following commands to create the environment.
 conda create --name DeepCDR_IMPROVE_env python=3.10
 conda activate DeepCDR_IMPROVE_env
 conda install tensorflow-gpu=2.10.0
-pip install git+https://github.com/ECP-CANDLE/candle_lib@develop
-pip install protobuf==3.20.0
 pip install rdkit==2023.9.6
 pip install deepchem==2.8.0
+pip install PyYAML
 ```
 
 ### 3. Run `setup_improve.sh`.
