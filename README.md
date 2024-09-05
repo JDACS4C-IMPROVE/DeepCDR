@@ -137,7 +137,7 @@ Generates:
 exp_result
  ├── DeepCDR_model
  ├── val_scores.json
- ├── val_y_data_predicted.csv
+ └── val_y_data_predicted.csv
 ```
 
 
@@ -155,5 +155,5 @@ Generates:
 ```
 exp_result
  ├── test_scores.json
- ├── test_y_data_predicted.csv
+ └── test_y_data_predicted.csv
 ```
