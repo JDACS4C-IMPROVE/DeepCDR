@@ -1,10 +1,9 @@
 
 # DeepCDR
 
-This repository demonstrates how to use the [IMPROVE library v0.0.3-beta](https://github.com/JDACS4C-IMPROVE/IMPROVE/tree/v0.0.3-beta) for building a drug response prediction (DRP) model using DeepCDR, and provides examples with the benchmark [cross-study analysis (CSA) dataset](https://web.cels.anl.gov/projects/IMPROVE_FTP/candle/public/improve/benchmarks/single_drug_drp/benchmark-data-pilot1/csa_data/).
+This repository demonstrates how to use the [IMPROVE library v0.1.0-alpha](https://jdacs4c-improve.github.io/docs/v0.1.0-alpha/) for building a drug response prediction (DRP) model using LightGBM (LGBM), and provides examples with the benchmark [cross-study analysis (CSA) dataset](https://web.cels.anl.gov/projects/IMPROVE_FTP/candle/public/improve/benchmarks/single_drug_drp/benchmark-data-pilot1/csa_data/).
 
-This version, tagged as `v0.0.3-beta`, is the final release before transitioning to `v0.1.0-alpha`, which introduces a new API. Version `v0.0.3-beta` and all previous releases have served as the foundation for developing essential components of the IMPROVE software stack. Subsequent releases build on this legacy with an updated API, designed to encourage broader adoption of IMPROVE and its curated models by the research community.
-
+This version, tagged as `v0.1.0-alpha`, introduces a new API which is designed to encourage broader adoption of IMPROVE and its curated models by the research community.
 
 ## Dependencies
 Installation instuctions are detialed below in [Step-by-step instructions](#step-by-step-instructions).
@@ -14,9 +13,7 @@ ML framework:
 + [Tensorflow](https://www.tensorflow.org/) -- deep learning framework for building the prediction model
 
 IMPROVE dependencies:
-+ [IMPROVE v0.0.3-beta](https://github.com/JDACS4C-IMPROVE/IMPROVE/tree/v0.0.3-beta)
-+ [candle_lib](https://github.com/ECP-CANDLE/candle_lib) - IMPROVE dependency (enables various hyperparameter optimization on HPC machines) `TODO`: need to fork into IMPROVE project and tag
-
++ [IMPROVE v0.1.0-alpha](https://jdacs4c-improve.github.io/docs/v0.1.0-alpha/)
 
 
 ## Dataset
@@ -60,9 +57,10 @@ Note that `original_work` folder contains data files and scripts used to train a
 
 ## Model scripts and parameter file
 + `deepcdr_preprocess_improve.py` - takes benchmark data files and transforms into files for trianing and inference
-+ `deepcdr_train_improve.py` - trains the DeepCDR model
-+ `deepcdr_infer_improve.py` - runs inference with the trained DeepCDR model
-+ `deepcdr_params.txt` - default parameter file
++ `deepcdr_train_improve.py` - trains a deepcdr DRP model
++ `deepcdr_infer_improve.py` - runs inference with the trained deepcdr model
++ `model_params_def.py` - definitions of parameters that are specific to the model
++ `deepcdr_params.txt` - default parameter file (parameter values specified in this file override the defaults)
 
 
 
@@ -72,7 +70,7 @@ Note that `original_work` folder contains data files and scripts used to train a
 ```
 git clone https://github.com/JDACS4C-IMPROVE/DeepCDR.git
 cd DeepCDR
-git checkout develop
+git checkout framework-api
 ```
 
 
@@ -96,13 +94,13 @@ source setup_improve.sh
 
 This will:
 1. Download cross-study analysis (CSA) benchmark data into `./csa_data/`.
-2. Clone IMPROVE repo (checkout tag `v0.0.3-beta`) outside the DeepCDR model repo
+2. Clone IMPROVE repo (checkout `develop`) outside the LGBM model repo.
 3. Set up env variables: `IMPROVE_DATA_DIR` (to `./csa_data/`) and `PYTHONPATH` (adds IMPROVE repo).
 
 
 ### 4. Preprocess CSA benchmark data (_raw data_) to construct model input data (_ML data_)
 ```bash
-python deepcdr_preprocess_improve.py
+python deepcdr_preprocess_improve.py --input_dir ./csa_data/raw_data --output_dir exp_result
 ```
 
 Preprocesses the CSA data and creates train, validation (val), and test datasets.
@@ -112,23 +110,21 @@ Generates:
 * three tabular data files, each containing the drug response values (i.e. AUC) and corresponding metadata: `train_y_data.csv`, `val_y_data.csv`, `test_y_data.csv`
 
 ```
-ml_data
-└── CCLE-CCLE
-    └── split_0
-        ├── cancer_dna_methy_model
-        ├── cancer_gen_expr_model
-        ├── cancer_gen_mut_model
-        ├── test_y_data.csv
-        ├── train_y_data.csv
-        ├── val_y_data.csv
-        ├── drug_features.pickle
-        └── norm_adj_mat.pickle
+exp_result
+├── param_log_file.txt
+├── cancer_dna_methy_model
+├── cancer_gen_expr_model
+├── cancer_gen_mut_model
+├── test_y_data.csv
+├── train_y_data.csv
+├── val_y_data.csv
+├── drug_features.pickle
+└── norm_adj_mat.pickle
 ```
-
 
 ### 5. Train DeepCDR model
 ```bash
-python deepcdr_train_improve.py
+python deepcdr_train_improve.py --input_dir exp_result --output_dir exp_result
 ```
 
 Trains DeepCDR using the model input data generated in the previous step.
@@ -138,19 +134,17 @@ Generates:
 * predictions on val data (tabular data): `val_y_data_predicted.csv`
 * prediction performance scores on val data: `val_scores.json`
 ```
-out_models
-└── CCLE
-    └── split_0
-        ├── DeepCDR_model
-        ├── val_scores.json
-        └── val_y_data_predicted.csv
+exp_result
+ ├── DeepCDR_model
+ ├── val_scores.json
+ ├── val_y_data_predicted.csv
 ```
 
 
 ### 6. Run inference on test data with the trained model
 
 ```bash
-python deepcdr_infer_improve.py
+python deepcdr_infer_improve.py --input_data_dir exp_result --input_model_dir exp_result --output_dir exp_result --calc_infer_score true
 ```
 
 Evaluates the performance on a test dataset with the trained model.
@@ -159,10 +153,7 @@ Generates:
 * predictions on test data (tabular data): `test_y_data_predicted.csv`
 * prediction performance scores on test data: `test_scores.json`
 ```
-out_infer
-└── CCLE-CCLE
-    └── split_0
-        ├── test_scores.json
-        └── test_y_data_predicted.csv
+exp_result
+ ├── test_scores.json
+ ├── test_y_data_predicted.csv
 ```
-
