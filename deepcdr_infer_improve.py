@@ -24,6 +24,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 filepath = Path(__file__).resolve().parent # [Req]
 
+# [Req]
 def run(params):
     """ Execute specified model training.
 
@@ -73,7 +74,6 @@ def run(params):
 
     # load the model
     modelpath = frm.build_model_path(params, model_dir=params["input_model_dir"]) # [Req]
-    print("Model path", modelpath)
     model_path = os.path.join(modelpath, "DeepCDR_model")
     check = tf.keras.models.load_model(model_path)
 
