@@ -23,7 +23,7 @@ from model_params_def import train_params # [Req]
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
-filepath = Path(__file__).resolve().parent
+filepath = Path(__file__).resolve().parent # [Req]
 
 
 training = False
@@ -260,6 +260,7 @@ def initialize_parameters():
     Returns:
         dict: dict of IMPROVE/CANDLE parameters and parsed values.
     """
+    # [Req] Initialize parameters
     additional_definitions = train_params
     cfg = DRPTrainConfig()
     params = cfg.initialize_parameters(

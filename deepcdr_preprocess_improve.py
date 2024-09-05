@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Dict
 import joblib
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
@@ -30,8 +30,6 @@ import improvelib.applications.drug_response_prediction.drp_utils as drp
 from model_params_def import preprocess_params # [Req]
 
 filepath = Path(__file__).resolve().parent
-
-print(filepath)
 
 def get_emb_models(dataset, norm = False):
     std = StandardScaler()
@@ -95,6 +93,7 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
     adj_mat[len(adj_list):,len(adj_list):] = norm_adj_2    
     return [feat,adj_mat]
 
+# [Req]
 def run(params: Dict):
     """ Execute data pre-processing for GraphDRP model.
 
