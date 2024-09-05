@@ -20,7 +20,7 @@ import improvelib.utils as frm
 # Model-specific imports
 from model_params_def import infer_params # [Req]
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 filepath = Path(__file__).resolve().parent # [Req]
 
