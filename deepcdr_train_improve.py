@@ -21,7 +21,7 @@ from improvelib.metrics import compute_metrics
 # Model-specific imports
 from model_params_def import train_params # [Req]
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
 filepath = Path(__file__).resolve().parent # [Req]
 
@@ -141,6 +141,7 @@ def run(params: Dict):
 
     train_data_fname = frm.build_ml_data_name(params, stage="train")  # [Req]
     val_data_fname = frm.build_ml_data_name(params, stage="val")  # [Req]
+
 
     # import the preprocessed data
     # specify the directory where preprocessed data is stored
