@@ -32,7 +32,14 @@ train_params = [
      "type": int,
      "default": 256,
      "help": "Validation batch size."
+    },
+
+    {"name": "patience",
+     "type": int,
+     "default": 20,
+     "help": "No.of epchs to run before exiting out of the training loop"
     }
+
 ]
 
 
