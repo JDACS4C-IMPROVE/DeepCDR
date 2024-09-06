@@ -16,7 +16,7 @@
 
 ### Path to your CANDLEized model's main Python script ###
 # CANDLE_MODEL=/usr/local/GraphDRP/graphdrp_baseline_pytorch.py
-CANDLE_MODEL=train_with_data_loader.py
+CANDLE_MODEL=deepcdr_train_improve.py
 # CANDLE_MODEL=frm_train_candle.py  # TODO: change this var name!
 
 # Path to directory containing model executable
