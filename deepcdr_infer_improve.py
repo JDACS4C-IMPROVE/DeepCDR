@@ -27,7 +27,13 @@ metrics_list = ["mse", "rmse", "pcc", "scc", "r2"]
 # [Req] App-specific params (App: monotherapy drug response prediction)
 # Currently, there are no app-specific args for the train script.
 app_infer_params = []
-model_infer_params = []
+model_infer_params = [
+    {"name": "test_batch",
+     "type": int,
+     "default": 256,
+     "help": "Infer batch size."
+    },
+]
 
 infer_params = app_infer_params + model_infer_params
 
@@ -92,17 +98,10 @@ def run(params):
     check = tf.keras.models.load_model(model_path)
 
     # # get the predictions on the test set
-    # preds_test = check.predict([test_gcn_feats, test_adj_list, test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1)])
-    # preds_test = preds_test.flatten()
-    # print(preds_test.shape)
-    generator_batch_size = 32
+    generator_batch_size = params['test_batch']
     test_steps = int(np.ceil(len(test_gcn_feats) / generator_batch_size))
     preds_test, target_test = batch_predict(check, data_generator(test_gcn_feats, test_adj_list, test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), test_steps)
     print(preds_test.shape, target_test.shape)
-
-    # # get the responses corresponding to the preds in the test set
-    # target_test = test_keep["AUC"].values
-    # print(target_test.shape)
 
     # [Req] Save raw predictions in dataframe
     # -----------------------------
