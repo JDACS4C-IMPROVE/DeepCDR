@@ -15,50 +15,17 @@ from create_data_generator import data_generator, batch_predict
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
+# [Req] Imports from preprocess script
+from deepcdr_preprocess_improve import preprocess_params
+from deepcdr_train_improve import train_params
+
 filepath = Path(__file__).resolve().parent
-
-app_preproc_params = [
-    # These arg should be specified in the [modelname]_default_model.txt:
-    # y_data_files, x_data_canc_files, x_data_drug_files
-    {"name": "y_data_files", # default
-     "type": str,
-     "help": "List of files that contain the y (prediction variable) data. \
-             Example: [['response.tsv']]",
-    },
-    {"name": "x_data_canc_files", # [Req]
-     "type": str,
-     "help": "List of feature files including gene_system_identifer. Examples: \n\
-             1) [['cancer_gene_expression.tsv', ['Gene_Symbol']]] \n\
-             2) [['cancer_copy_number.tsv', ['Ensembl', 'Entrez']]].",
-    },
-    {"name": "x_data_drug_files", # [Req]
-     "type": str,
-     "help": "List of feature files. Examples: \n\
-             1) [['drug_SMILES.tsv']] \n\
-             2) [['drug_SMILES.tsv'], ['drug_ecfp4_nbits512.tsv']]",
-    },
-    {"name": "canc_col_name",
-     "default": "improve_sample_id", # default
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the cancer sample ids.",
-    },
-    {"name": "drug_col_name", # default
-     "default": "improve_chem_id",
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the drug ids.",
-    },
-
-]
-
-preprocess_params = app_preproc_params
 
 # [Req] List of metrics names to be compute performance scores
 metrics_list = ["mse", "rmse", "pcc", "scc", "r2"]  
 
 # [Req] App-specific params (App: monotherapy drug response prediction)
 # Currently, there are no app-specific args for the train script.
-train_params = []
-
 app_infer_params = []
 model_infer_params = []
 
