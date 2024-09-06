@@ -14,8 +14,14 @@ x_data_drug_files = [["drug_SMILES.tsv"]]
 data_format = .csv
 model_file_name = DeepCDR_model
 model_file_format = 
+epochs = 150
+batch_size = 256
+val_batch = 256
+learning_rate = 0.0001
+patience = 20
 
 [Infer]
 data_format = .csv
 model_file_name = DeepCDR_model
 model_file_format = 
+infer_batch = 256

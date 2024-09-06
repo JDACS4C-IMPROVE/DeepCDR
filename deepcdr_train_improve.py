@@ -116,10 +116,6 @@ def deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_meth
     final_out = final_out_layer(x)
     simplecdr = tf.keras.models.Model([input_gcn_features, input_norm_adj_mat, input_gen_expr1,
                                    input_gen_methy1, input_gen_mut1], final_out)
-    simplecdr.compile(loss = tf.keras.losses.MeanSquaredError(), 
-                      # optimizer = tf.keras.optimizers.Adam(lr=1e-3),
-                    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False), 
-                    metrics = [tf.keras.metrics.RootMeanSquaredError()])
     
     return simplecdr
 
@@ -195,8 +191,8 @@ def run(params: Dict):
     valid_adj_list = np.array(valid_adj_list).astype("float16")
 
     # create a data generator for the train data
-    batch_size = 32
-    generator_batch_size = 32
+    batch_size = params['batch_size']
+    generator_batch_size = params['val_batch']
     # Prepare the train data generator
     train_gen =  data_generator(train_gcn_feats, train_adj_list, train_keep["Cell_Line"].values.reshape(-1,1), train_keep["Cell_Line"].values.reshape(-1,1), 
     train_keep["Cell_Line"].values.reshape(-1,1), train_keep["AUC"].values.reshape(-1,1), batch_size, shuffle=True, peek=True, verbose=False)
@@ -214,15 +210,25 @@ def run(params: Dict):
     dropout1 = 0.10
     dropout2 = 0.20
     check = deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_methy_model, cancer_gen_expr_model, cancer_gen_mut_model,  training = training, dropout1 = dropout1, dropout2 = dropout2)
+    
+    # compile the model
+    lr = params['learning_rate']
+    check.compile(loss = tf.keras.losses.MeanSquaredError(), 
+                      # optimizer = tf.keras.optimizers.Adam(lr=1e-3),
+                    optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, amsgrad=False), 
+                    metrics = [tf.keras.metrics.RootMeanSquaredError()])
 
+    # fit the model              
+    epoch_num = params['epochs']
+    patience_val = params['patience']
     check.fit(train_gen,
          validation_data = val_gen, 
-         epochs = 100, steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
-         callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = 10, restore_best_weights=True, 
-                                                     mode = "min") ,validation_batch_size = 32)
+         epochs = epoch_num, steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
+         callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = patience_val, restore_best_weights=True, 
+                                                     mode = "min") ,validation_batch_size = generator_batch_size)
     
 
-    generator_batch_size = 32
+    # generator_batch_size = 32
     y_val_preds, y_val_true = batch_predict(check, data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), validation_steps)
     
 

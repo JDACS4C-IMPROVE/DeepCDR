@@ -78,7 +78,7 @@ def run(params):
     check = tf.keras.models.load_model(model_path)
 
     # # get the predictions on the test set
-    generator_batch_size = 32
+    generator_batch_size = params['infer_batch']
     test_steps = int(np.ceil(len(test_gcn_feats) / generator_batch_size))
     preds_test, target_test = batch_predict(check, data_generator(test_gcn_feats, test_adj_list, test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), test_steps)
     print(preds_test.shape, target_test.shape)
