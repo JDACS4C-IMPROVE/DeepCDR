@@ -203,10 +203,10 @@ def run(params: Dict):
         # The implementation of this step, depends on the model.
         # -----------------------
         # Give a name to the response file
-        data_fname = frm.build_ml_data_name(params, stage)
+        data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
 
         # # [Req] Save y dataframe for the current stage
-        frm.save_stage_ydf(rsp, params, stage)
+        frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
 
     return params["output_dir"]
 
@@ -218,10 +218,7 @@ def main(args):
     params = cfg.initialize_parameters(
         pathToModelDir=filepath,
         default_config="deepcdr_params.txt",
-        default_model=None,
-        additional_cli_section=None,
-        additional_definitions=additional_definitions,
-        required=None
+        additional_definitions=additional_definitions
     )
     ml_data_outdir = run(params)
     print("\nFinished data preprocessing.")
