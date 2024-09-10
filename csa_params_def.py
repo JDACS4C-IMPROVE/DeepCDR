@@ -1,8 +1,4 @@
-import os
-from pathlib import Path
 
-fdir = Path(__file__).resolve().parent
-required = None
 additional_definitions = [
     {"name": "source_datasets",
      "nargs" : "+",
@@ -42,6 +38,12 @@ additional_definitions = [
      "default": 10,
      "help": "Number of epochs"
     },
+    {"name": "available_accelerators",
+     "nargs" : "+",
+     "type": str,
+     "default": ["0", "1"],
+     "help": "GPU IDs to assign jobs"
+    },
     {"name": "use_singularity",
      "type": bool,
      "default": True,
@@ -52,4 +54,4 @@ additional_definitions = [
      "default": '',
      "help": "Singularity image file of the model"
     }
-]
+    ]
