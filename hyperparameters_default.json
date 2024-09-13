@@ -1,24 +1,24 @@
 {
     "deepcdr": {
         "CCLE": {
-            "batch_size": 256,
-            "learning_rate": 0.0001
+            "batch_size": 32,
+            "learning_rate": 0.001
         },
         "CTRPv2": {
-            "batch_size": 256,
-            "learning_rate": 0.0001
+            "batch_size": 32,
+            "learning_rate": 0.001
         },
         "GDSCv1": {
-            "batch_size": 256,
-            "learning_rate": 0.0001
+            "batch_size": 32,
+            "learning_rate": 0.001
         },
         "GDSCv2": {
-            "batch_size": 256,
-            "learning_rate": 0.0001
+            "batch_size": 32,
+            "learning_rate": 0.001
         },
         "gCSI": {
-            "batch_size": 256,
-            "learning_rate": 0.0001
+            "batch_size": 32,
+            "learning_rate": 0.001
         }
     }
 }

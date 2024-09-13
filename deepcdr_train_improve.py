@@ -21,7 +21,7 @@ from improvelib.metrics import compute_metrics
 # Model-specific imports
 from model_params_def import train_params # [Req]
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
 filepath = Path(__file__).resolve().parent # [Req]
 
