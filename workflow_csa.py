@@ -36,7 +36,7 @@ config_lambda = Config(
         HighThroughputExecutor(
             address='127.0.0.1',
             label="htex",
-            cpu_affinity="alternating",
+            cpu_affinity="block",
             #max_workers_per_node=2, ## IS NOT SUPPORTED IN  Parsl version: 2023.06.19. CHECK HOW TO USE THIS???
             worker_debug=True,
             available_accelerators=params['available_accelerators'], 
@@ -130,7 +130,7 @@ def infer(params, source_data_name, target_data_name, split): #
                 "--y_col_name", str(params['y_col_name'])
             ]
         result = subprocess.run(infer_run, capture_output=True,
-                                text=True, check=True)
+                                    text=True, check=True)
     return True
 
 ###############################
