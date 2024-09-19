@@ -76,13 +76,13 @@ git checkout develop
 
 ### 2. Set computational environment
 
-Option 1: create the conda env using the yml file.
+Option 1: Create the conda env using the yml file.
 
 ```
 conda env create -f deepcdr_env.yml
 ```
 
-Use the following commands to create the environment.
+Option 2: Use the following commands to create the environment.
 ```
 conda create --name DeepCDR_IMPROVE_env python=3.10
 conda activate DeepCDR_IMPROVE_env
