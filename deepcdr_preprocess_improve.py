@@ -12,52 +12,24 @@ import sys
 from pathlib import Path
 from typing import Dict
 import joblib
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import StandardScaler
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
-# IMPROVE imports
-from improve import framework as frm
-from improve import drug_resp_pred as drp
+# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
+# [Req] IMPROVE imports
+# Core improvelib imports
+from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
+from improvelib.utils import str2bool
+import improvelib.utils as frm
+# Application-specific (DRP) imports
+import improvelib.applications.drug_response_prediction.drug_utils as drugs_utils
+import improvelib.applications.drug_response_prediction.omics_utils as omics_utils
+import improvelib.applications.drug_response_prediction.drp_utils as drp
+
+# Model-specific imports
+from model_params_def import preprocess_params # [Req]
 
 filepath = Path(__file__).resolve().parent
-
-# [Req] App-specific params (App: monotherapy drug response prediction)
-# TODO: consider moving this list to drug_resp_pred.py module
-app_preproc_params = [
-    # These arg should be specified in the [modelname]_default_model.txt:
-    # y_data_files, x_data_canc_files, x_data_drug_files
-    {"name": "y_data_files", # default
-     "type": str,
-     "help": "List of files that contain the y (prediction variable) data. \
-             Example: [['response.tsv']]",
-    },
-    {"name": "x_data_canc_files", # [Req]
-     "type": str,
-     "help": "List of feature files including gene_system_identifer. Examples: \n\
-             1) [['cancer_gene_expression.tsv', ['Gene_Symbol']]] \n\
-             2) [['cancer_copy_number.tsv', ['Ensembl', 'Entrez']]].",
-    },
-    {"name": "x_data_drug_files", # [Req]
-     "type": str,
-     "help": "List of feature files. Examples: \n\
-             1) [['drug_SMILES.tsv']] \n\
-             2) [['drug_SMILES.tsv'], ['drug_ecfp4_nbits512.tsv']]",
-    },
-    {"name": "canc_col_name",
-     "default": "improve_sample_id", # default
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the cancer sample ids.",
-    },
-    {"name": "drug_col_name", # default
-     "default": "improve_chem_id",
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the drug ids.",
-    },
-
-]
-
-model_preproc_params = []
-preprocess_params = app_preproc_params + model_preproc_params
 
 def get_emb_models(dataset, norm = False):
     std = StandardScaler()
@@ -121,30 +93,23 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
     adj_mat[len(adj_list):,len(adj_list):] = norm_adj_2    
     return [feat,adj_mat]
 
-def run(params):
+# [Req]
+def run(params: Dict):
     """ Execute data pre-processing for GraphDRP model.
 
     :params: Dict params: A dictionary of CANDLE/IMPROVE keywords and parsed values.
     """
 
-    # ------------------------------------------------------
-    # [Req] Build paths and create ML data dir
-    # ----------------------------------------
-    # Build paths for raw_data, x_data, y_data, splits
-    params = frm.build_paths(params)  
-
-    # Create outdir for ML data (to save preprocessed data)
-    processed_outdir = frm.create_outdir(outdir=params["ml_data_outdir"])
     # ----------------------------------------
     # [Req] Load omics data - and set index
     # ---------------------
-    print("\nLoading omics data ...")
-    oo = drp.OmicsLoader(params)
-    ge = oo.dfs['cancer_gene_expression.tsv'] 
+    print("\nLoad omics data ...")
+    omics_obj = omics_utils.OmicsLoader(params)
+    ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
     ge = ge.set_index('improve_sample_id')
-    mut = oo.dfs['cancer_mutation_count.tsv'] 
+    mut = omics_obj.dfs['cancer_mutation_count.tsv'] 
     mut = mut.set_index('improve_sample_id')
-    methyl = oo.dfs['cancer_DNA_methylation.tsv']
+    methyl = omics_obj.dfs['cancer_DNA_methylation.tsv']
     methyl = methyl.set_index('improve_sample_id')
 
     # impute missing values in methylation
@@ -157,20 +122,20 @@ def run(params):
     cancer_gen_mut_model = get_emb_models(mut, norm = True)
     cancer_dna_methy_model = get_emb_models(methyl, norm = True)
 
-    # Save the models -  in a folder named Models
-    cancer_gen_expr_model.save(os.path.join(processed_outdir, "cancer_gen_expr_model"))
-    cancer_gen_mut_model.save(os.path.join(processed_outdir,"cancer_gen_mut_model"))
-    cancer_dna_methy_model.save(os.path.join(processed_outdir, "cancer_dna_methy_model"))
+    # Save the models -  these will get saved in the exp_result folder
+    cancer_gen_expr_model.save(os.path.join(params["output_dir"], "cancer_gen_expr_model"))
+    cancer_gen_mut_model.save(os.path.join(params["output_dir"],"cancer_gen_mut_model"))
+    cancer_dna_methy_model.save(os.path.join(params["output_dir"], "cancer_dna_methy_model"))
 
     
 
 
     # ------------------------------------------------------
     # [Req] Load drug data
-    # --------------------
-    print("\nLoading drugs data...")
-    dd = drp.DrugsLoader(params)
-    smi = dd.dfs['drug_SMILES.tsv']  # get only the SMILES data
+    # ------------------------------------------------------
+    print("\nLoad drugs data...")
+    drugs_obj = drugs_utils.DrugsLoader(params)
+    smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
     # --------------------
 
     # reset index of the smiles file
@@ -204,10 +169,10 @@ def run(params):
         dict_adj_mat[str(drug_id_cur)] = l[1]
 
     # save the features and adjacency matrices
-    with open(os.path.join(processed_outdir, "drug_features.pickle"), "wb") as f:
+    with open(os.path.join(params["output_dir"], "drug_features.pickle"), "wb") as f:
         pickle.dump(dict_features, f)
 
-    with open(os.path.join(processed_outdir, "norm_adj_mat.pickle"), "wb") as f:
+    with open(os.path.join(params["output_dir"], "norm_adj_mat.pickle"), "wb") as f:
         pickle.dump(dict_adj_mat, f)
 
     # -------------------------------------------
@@ -217,7 +182,7 @@ def run(params):
     stages = {"train": params["train_split_file"],
               "val": params["val_split_file"],
               "test": params["test_split_file"]}
-    scaler = None
+
 
     for stage, split_file in stages.items():
 
@@ -225,33 +190,35 @@ def run(params):
         # [Req] Load response data
         # ------------------------
         
-        rr = drp.DrugResponseLoader(params, split_file=split_file, verbose=True)
-        df_response = rr.dfs["response.tsv"]
+        rsp = drp.DrugResponseLoader(params,
+                                     split_file=split_file,
+                                     verbose=False).dfs["response.tsv"]
+
 
         # keep only the required columns in the dataframe
-        df_response = df_response[['improve_sample_id', 'improve_chem_id', 'auc']]
+        rsp = rsp[['improve_sample_id', 'improve_chem_id', 'auc']]
         # ------------------------
         # -----------------------
         # [Req] Save ML data files in params["ml_data_outdir"]
         # The implementation of this step, depends on the model.
         # -----------------------
         # Give a name to the response file
-        data_fname = frm.build_ml_data_name(params, stage)
+        data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
 
         # # [Req] Save y dataframe for the current stage
-        frm.save_stage_ydf(df_response, params, stage)
+        frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
 
-    return params["ml_data_outdir"]
+    return params["output_dir"]
 
 # [Req]
 def main(args):
     # [Req]
     additional_definitions = preprocess_params
-    params = frm.initialize_parameters(
-        filepath,
-        default_model="deepcdr_params.txt",
-        additional_definitions=additional_definitions,
-        required=None,
+    cfg = DRPPreprocessConfig()
+    params = cfg.initialize_parameters(
+        pathToModelDir=filepath,
+        default_config="deepcdr_params.txt",
+        additional_definitions=additional_definitions
     )
     ml_data_outdir = run(params)
     print("\nFinished data preprocessing.")
@@ -259,14 +226,3 @@ def main(args):
 # [Req]
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
-
-
-
-
-
-
-
-
-

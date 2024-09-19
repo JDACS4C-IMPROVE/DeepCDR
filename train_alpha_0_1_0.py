@@ -1,5 +1,3 @@
-from candle import CandleCkptPyTorch
-from improve import framework as frm
 import os
 import json
 import sys
@@ -12,53 +10,21 @@ import pickle
 import pandas as pd
 import numpy as np
 from tensorflow.keras import backend as K
+from create_data_generator import data_generator, batch_predict
 
-# disable GPU
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# [Req] IMPROVE imports
+from improvelib.applications.drug_response_prediction.config import DRPTrainConfig
+from improvelib.utils import str2bool
+import improvelib.utils as frm
+from improvelib.metrics import compute_metrics
+
+# Model-specific imports
+from model_params_def import train_params # [Req]
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 filepath = Path(__file__).resolve().parent
 
-app_preproc_params = [
-    # These arg should be specified in the [modelname]_default_model.txt:
-    # y_data_files, x_data_canc_files, x_data_drug_files
-    {"name": "y_data_files", # default
-     "type": str,
-     "help": "List of files that contain the y (prediction variable) data. \
-             Example: [['response.tsv']]",
-    },
-    {"name": "x_data_canc_files", # [Req]
-     "type": str,
-     "help": "List of feature files including gene_system_identifer. Examples: \n\
-             1) [['cancer_gene_expression.tsv', ['Gene_Symbol']]] \n\
-             2) [['cancer_copy_number.tsv', ['Ensembl', 'Entrez']]].",
-    },
-    {"name": "x_data_drug_files", # [Req]
-     "type": str,
-     "help": "List of feature files. Examples: \n\
-             1) [['drug_SMILES.tsv']] \n\
-             2) [['drug_SMILES.tsv'], ['drug_ecfp4_nbits512.tsv']]",
-    },
-    {"name": "canc_col_name",
-     "default": "improve_sample_id", # default
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the cancer sample ids.",
-    },
-    {"name": "drug_col_name", # default
-     "default": "improve_chem_id",
-     "type": str,
-     "help": "Column name in the y (response) data file that contains the drug ids.",
-    },
-
-]
-
-preprocess_params = app_preproc_params
-
-# [Req] List of metrics names to be compute performance scores
-metrics_list = ["mse", "rmse", "pcc", "scc", "r2"]  
-
-# [Req] App-specific params (App: monotherapy drug response prediction)
-# Currently, there are no app-specific args for the train script.
-app_train_params = []
 
 training = False
 dropout1 = 0.10
@@ -157,37 +123,32 @@ def deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_meth
     
     return simplecdr
 
+# [Req]
+def run(params: Dict):
+    """ Run model training.
 
-def run(params):
-    """ Execute specified model training.
+    Args:
+        params (dict): dict of IMPROVE parameters and parsed values.
 
-    :params: Dict params: A dictionary of CANDLE/IMPROVE keywords and parsed values.
-
-    :return: List of floats evaluating model predictions according to
-             specified metrics_list.
-    :rtype: float list
+    Returns:
+        dict: prediction performance scores computed on validation data
+            according to the metrics_list.
     """
-    # import pdb; pdb.set_trace()
-
     # ------------------------------------------------------
-    # [Req] Create output dir for the model. 
+    # [Req] Build model path 
     # ------------------------------------------------------
-    # import pdb; pdb.set_trace()
-    # modelpath = frm.create_model_outpath(params)
-    modelpath = frm.create_outdir(outdir=params["model_outdir"])
-    # modelpath = frm.build_model_path(params, model_dir=params["model_outdir"])
+    modelpath = frm.build_model_path(params, model_dir=params["output_dir"])
 
     # ------------------------------------------------------
     # [Req] Create data names for train and val
     # ------------------------------------------------------
 
-    train_data_fname = frm.build_ml_data_name(params, stage="train")
-    val_data_fname = frm.build_ml_data_name(params, stage="val")
+    train_data_fname = frm.build_ml_data_name(params, stage="train")  # [Req]
+    val_data_fname = frm.build_ml_data_name(params, stage="val")  # [Req]
 
     # import the preprocessed data
     # specify the directory where preprocessed data is stored
-    data_dir = frm.build_model_path(params, model_dir=params["train_ml_data_dir"])
-    data_dir = os.path.dirname(data_dir)
+    data_dir = params['input_dir']
 
     
     # load the models
@@ -233,52 +194,91 @@ def run(params):
     train_adj_list = np.array(train_adj_list).astype("float16")
     valid_adj_list = np.array(valid_adj_list).astype("float16")
 
+    # create a data generator for the train data
+    batch_size = 32
+    generator_batch_size = 32
+    # Prepare the train data generator
+    train_gen =  data_generator(train_gcn_feats, train_adj_list, train_keep["Cell_Line"].values.reshape(-1,1), train_keep["Cell_Line"].values.reshape(-1,1), 
+    train_keep["Cell_Line"].values.reshape(-1,1), train_keep["AUC"].values.reshape(-1,1), batch_size, shuffle=True, peek=True, verbose=False)
+
+    # try also with the vallidation data generator
+    val_gen =  data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), 
+    valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, peek=True)
+
+    steps_per_epoch = int(np.ceil(len(train_gcn_feats) / batch_size))
+    train_steps = int(np.ceil(len(train_gcn_feats) / generator_batch_size))
+    validation_steps = int(np.ceil(len(valid_gcn_feats) / generator_batch_size))
+
+
     training = False
     dropout1 = 0.10
     dropout2 = 0.20
     check = deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_methy_model, cancer_gen_expr_model, cancer_gen_mut_model,  training = training, dropout1 = dropout1, dropout2 = dropout2)
 
-    check.fit([train_gcn_feats, train_adj_list, train_keep["Cell_Line"].values.reshape(-1,1), train_keep["Cell_Line"].values.reshape(-1,1), train_keep["Cell_Line"].values.reshape(-1,1)],
-          train_keep["AUC"].values.reshape(-1,1),
-         validation_data = ([valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1)],
-          valid_keep["AUC"].values.reshape(-1,1)), 
-         batch_size = 32, epochs = 100, 
-         callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = 7, restore_best_weights=True, 
-                                                     mode = "min"), shuffle = True, verbose = 1, 
-         validation_batch_size = 32)
+    check.fit(train_gen,
+         validation_data = val_gen, 
+         epochs = 100, steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
+         callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = 10, restore_best_weights=True, 
+                                                     mode = "min") ,validation_batch_size = 32)
     
-    # make predictions with the model for validation data, and save the validation prediction files
-    # get the predictions on the test set
-    y_val_preds = check.predict([valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1)])
-    # get the responses corresponding to the preds in the test set
-    # y_val_true = valid_keep["AUC"].values.reshape(-1,1) 
-    y_val_preds = y_val_preds.flatten()
-    y_val_true = valid_keep["AUC"].values
 
+    generator_batch_size = 32
+    y_val_preds, y_val_true = batch_predict(check, data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), validation_steps)
+    
+
+    # ------------------------------------------------------
     # [Req] Save raw predictions in dataframe
-    # -----------------------------
-    frm.store_predictions_df(params, y_true=y_val_true, y_pred=y_val_preds, stage="val", outdir=modelpath)
-
+    # ------------------------------------------------------
+    frm.store_predictions_df(
+        y_true=y_val_true, 
+        y_pred=y_val_preds, 
+        stage="val",
+        y_col_name=params["y_col_name"],
+        output_dir=params["output_dir"]
+    )
+    # ------------------------------------------------------
     # [Req] Compute performance scores
-    val_scores = frm.compute_performace_scores( params, y_true=y_val_true, y_pred=y_val_preds, stage="val",outdir=modelpath, metrics=metrics_list)
+    # ------------------------------------------------------
+    val_scores = frm.compute_performance_scores(
+        y_true=y_val_true, 
+        y_pred=y_val_preds, 
+        stage="val",
+        metric_type=params["metric_type"],
+        output_dir=params["output_dir"]
+    )
 
-    # save the model in the created model directory
-    check.save(os.path.join(modelpath, "DeepCDR_on_GDSCv1_new"))
+    # # save the model in the created model directory
+    check.save(os.path.join(modelpath, "DeepCDR_model"))
 
     return val_scores
 
 # [Req]
+def initialize_parameters():
+    """This initialize_parameters() is define this way to support Supervisor
+    workflows such as HPO.
+
+    Returns:
+        dict: dict of IMPROVE/CANDLE parameters and parsed values.
+    """
+    additional_definitions = train_params
+    cfg = DRPTrainConfig()
+    params = cfg.initialize_parameters(
+        pathToModelDir=filepath,
+        default_config="alpha_params.txt",
+        default_model=None,
+        additional_cli_section=None,
+        additional_definitions=additional_definitions,
+        required=None)
+    return params
+
+
+# [Req]
 def main(args):
     # [Req]
-    additional_definitions = preprocess_params + app_train_params
-    params = frm.initialize_parameters(
-        filepath,
-        default_model="trial_params.txt",
-        additional_definitions=additional_definitions,
-        required=None,
-    )
+    params = initialize_parameters()
     val_scores = run(params)
-    print("\nFinished model training.")
+    print("\nFinished training model.")
+
 
 # [Req]
 if __name__ == "__main__":
