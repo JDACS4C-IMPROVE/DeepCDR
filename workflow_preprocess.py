@@ -177,6 +177,6 @@ for source_data_name in params['source_datasets']:
             preprocess_futures.append(preprocess(inputs=[params, source_data_name, split])) 
 
 for future_p in preprocess_futures:
-    print(future_p.result())
+    print(f'***PREPROCESS OUTPUT {future_p.result()}*****')
 
 parsl.clear()

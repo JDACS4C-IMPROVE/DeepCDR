@@ -167,6 +167,9 @@ for source_data_name in params['source_datasets']:
     for split in params['split']:
         train_futures.append(train(params, hp_model, source_data_name, split))
 
+for future_t in train_futures:
+    print(f'***TRAIN OUTPUT {future_t.result()}*****')
+
 ##Infer execution with Parsl
 infer_futures =[]
 for future_t in train_futures:
