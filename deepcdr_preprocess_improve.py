@@ -14,6 +14,7 @@ from typing import Dict
 import joblib
 from sklearn.preprocessing import StandardScaler
 
+# # device ID
 # os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 # [Req] IMPROVE imports
