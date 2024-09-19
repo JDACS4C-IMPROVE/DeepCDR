@@ -79,7 +79,7 @@ git checkout develop
 Option 1: Create the conda env using the yml file.
 
 ```
-conda env create -f deepcdr_env.yml
+conda env create -f parsl_env.yml
 ```
 
 Option 2: Use the following commands to create the environment.
