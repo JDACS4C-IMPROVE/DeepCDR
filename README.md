@@ -70,11 +70,17 @@ Note that `original_work` folder contains data files and scripts used to train a
 ```
 git clone https://github.com/JDACS4C-IMPROVE/DeepCDR.git
 cd DeepCDR
-git checkout framework-api
+git checkout develop
 ```
 
 
 ### 2. Set computational environment
+
+Option 1: create the conda env using the yml file.
+
+```
+conda env create -f deepcdr_env.yml
+```
 
 Use the following commands to create the environment.
 ```
