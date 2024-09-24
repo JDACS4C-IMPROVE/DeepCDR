@@ -1,0 +1,14 @@
+name: deepcdr_parsl_env
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10.8
+  - tensorflow-gpu=2.10.0
+  - pip:
+      - deepchem==2.8.0
+      - rdkit==2023.9.6
+      - scikit-learn==1.5.1
+      - pyyaml==6.0.2
