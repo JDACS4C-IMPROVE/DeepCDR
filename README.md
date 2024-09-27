@@ -3,7 +3,7 @@
 
 This repository demonstrates how to use the [IMPROVE library v0.1.0-alpha](https://jdacs4c-improve.github.io/docs/v0.1.0-alpha/) for building a drug response prediction (DRP) model using LightGBM (LGBM), and provides examples with the benchmark [cross-study analysis (CSA) dataset](https://web.cels.anl.gov/projects/IMPROVE_FTP/candle/public/improve/benchmarks/single_drug_drp/benchmark-data-pilot1/csa_data/).
 
-This version, tagged as `v0.1.0-alpha`, introduces a new API which is designed to encourage broader adoption of IMPROVE and its curated models by the research community.
+This version, tagged as `v0.1.0-2024-09-27`, introduces a new API which is designed to encourage broader adoption of IMPROVE and its curated models by the research community.
 
 ## Dependencies
 Installation instuctions are detialed below in [Step-by-step instructions](#step-by-step-instructions).
@@ -13,7 +13,7 @@ ML framework:
 + [Tensorflow](https://www.tensorflow.org/) -- deep learning framework for building the prediction model
 
 IMPROVE dependencies:
-+ [IMPROVE v0.1.0-alpha](https://jdacs4c-improve.github.io/docs/v0.1.0-alpha/)
++ [IMPROVE tag v0.1.0-2024-09-27](https://github.com/JDACS4C-IMPROVE/IMPROVE/tree/v0.1.0-2024-09-27)
 
 
 ## Dataset
@@ -70,7 +70,7 @@ Note that `original_work` folder contains data files and scripts used to train a
 ```
 git clone https://github.com/JDACS4C-IMPROVE/DeepCDR.git
 cd DeepCDR
-git checkout develop
+git checkout v0.1.0-2024-09-27
 ```
 
 
