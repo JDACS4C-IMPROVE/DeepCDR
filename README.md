@@ -140,6 +140,15 @@ Generates:
 * prediction performance scores on val data: `val_scores.json`
 ```
 exp_result
+ ├── param_log_file.txt
+ ├── cancer_dna_methy_model
+ ├── cancer_gen_expr_model
+ ├── cancer_gen_mut_model
+ ├── test_y_data.csv
+ ├── train_y_data.csv
+ ├── val_y_data.csv
+ ├── drug_features.pickle
+ ├── norm_adj_mat.pickle
  ├── DeepCDR_model
  ├── val_scores.json
  └── val_y_data_predicted.csv
@@ -159,6 +168,18 @@ Generates:
 * prediction performance scores on test data: `test_scores.json`
 ```
 exp_result
+ ├── param_log_file.txt
+ ├── cancer_dna_methy_model
+ ├── cancer_gen_expr_model
+ ├── cancer_gen_mut_model
+ ├── test_y_data.csv
+ ├── train_y_data.csv
+ ├── val_y_data.csv
+ ├── drug_features.pickle
+ ├── norm_adj_mat.pickle
+ ├── DeepCDR_model
+ ├── val_scores.json
+ ├── val_y_data_predicted.csv
  ├── test_scores.json
  └── test_y_data_predicted.csv
 ```
