@@ -35,6 +35,7 @@ config_lambda = Config(
             address='127.0.0.1',
             label="htex_preprocess",
             cpu_affinity="alternating",
+            available_accelerators=params['available_accelerators'],
             #max_workers_per_node=2, ## IS NOT SUPPORTED IN Parsl version: 2023.06.19. CHECK HOW TO USE THIS???
             worker_debug=True,
             worker_port_range=worker_port_range,
