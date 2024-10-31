@@ -12,6 +12,7 @@ import numpy as np
 from tensorflow.keras import backend as K
 from create_data_generator import data_generator, batch_predict
 
+
 # [Req] IMPROVE imports
 from improvelib.applications.drug_response_prediction.config import DRPTrainConfig
 from improvelib.utils import str2bool
@@ -30,6 +31,54 @@ filepath = Path(__file__).resolve().parent # [Req]
 training = False
 dropout1 = 0.10
 dropout2 = 0.20
+
+'''
+def load_memmap_unknown_shape(directory, filename, mode='r'):
+    """
+    Loads a .npy file as a memory-mapped numpy array, even if shape is unknown.
+
+    Parameters:
+    - directory (str): Path to the directory containing the file.
+    - filename (str): Name of the .npy file.
+    - mode (str): Mode in which to open the memory map (default is 'r+' for read/write access).
+
+    Returns:
+    - np.memmap: Memory-mapped numpy array.
+    """
+    # Combine directory and filename
+    file_path = os.path.join(directory, filename)
+    
+    # Load temporarily to get shape and dtype without fully loading into memory
+    temp_array = np.load(file_path, mmap_mode='r')
+    shape = temp_array.shape
+    dtype = temp_array.dtype
+
+    # Create memory-mapped array with obtained shape and dtype
+    memmap_array = np.memmap(file_path, dtype=dtype, mode=mode, shape=shape)
+    
+    return memmap_array
+'''
+
+def load_memmap_unknown_shape(directory, filename, mode='r'):
+    """
+    Loads a .npy file as a memory-mapped numpy array, even if shape is unknown.
+
+    Parameters:
+    - directory (str): Path to the directory containing the file.
+    - filename (str): Name of the .npy file.
+    - mode (str): Mode in which to open the memory map (default is 'r' for read-only access).
+
+    Returns:
+    - np.memmap: Memory-mapped numpy array.
+    """
+    # Combine directory and filename
+    file_path = os.path.join(directory, filename)
+    
+    # Use np.lib.format.open_memmap to load the file as a memory-mapped array
+    memmap_array = np.lib.format.open_memmap(file_path, mode=mode)
+    
+    return memmap_array
+
 ## get the model architecture
 def deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_methy_model, cancer_gen_expr_model, cancer_gen_mut_model, training = training, dropout1 = dropout1, dropout2 = dropout2):
     
@@ -142,13 +191,14 @@ def run(params: Dict):
 
     train_data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage="train")  # [Req]
     val_data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage="val")  # [Req]
+    strategy = tf.distribute.MirroredStrategy()
+    with strategy.scope():
 
+        # import the preprocessed data
+        # specify the directory where preprocessed data is stored
+        data_dir = params['input_dir']
 
-    # import the preprocessed data
-    # specify the directory where preprocessed data is stored
-    data_dir = params['input_dir']
-
-    
+        
     # load the models
     cancer_gen_expr_model = tf.keras.models.load_model(os.path.join(data_dir,"cancer_gen_expr_model"))
     cancer_gen_mut_model = tf.keras.models.load_model(os.path.join(data_dir, "cancer_gen_mut_model"))
@@ -159,11 +209,13 @@ def run(params: Dict):
     cancer_dna_methy_model.trainable = False
 
     # load the drug data
+
     with open(os.path.join(data_dir, "drug_features.pickle"),"rb") as f:
         dict_features = pickle.load(f)
 
     with open(os.path.join(data_dir, "norm_adj_mat.pickle"),"rb") as f:
         dict_adj_mat = pickle.load(f)
+
 
     train_keep = pd.read_csv(os.path.join(data_dir, "train_y_data.csv"))
     valid_keep = pd.read_csv(os.path.join(data_dir, "val_y_data.csv"))
@@ -174,6 +226,17 @@ def run(params: Dict):
     samp_drug = valid_keep["Drug_ID"].unique()[-1]
     samp_ach = np.array(valid_keep["Cell_Line"].unique()[-1])
 
+    train_gcn_feats = load_memmap_unknown_shape(data_dir, 'train_drug_features.npy')
+    #print(train_gcn_feats.shape)
+    train_adj_list = load_memmap_unknown_shape(data_dir, 'train_norm_adj_mat.npy')
+    #print(train_adj_list.shape)
+    valid_gcn_feats = load_memmap_unknown_shape(data_dir, 'val_drug_features.npy')
+    valid_adj_list = load_memmap_unknown_shape(data_dir, 'val_norm_adj_mat.npy')
+
+    #mem_train_adj_list = load_memmap_unknown_shape(data_dir, 'train_norm_adj_mat.npy')
+    #loaded_array = np.load(os.path.join(data_dir, 'train_norm_adj_mat.npy'))
+
+    '''
     train_gcn_feats = []
     train_adj_list = []
     for drug_id in train_keep["Drug_ID"].values:
@@ -192,16 +255,25 @@ def run(params: Dict):
     train_adj_list = np.array(train_adj_list).astype("float16")
     valid_adj_list = np.array(valid_adj_list).astype("float16")
 
+    print(train_adj_list.shape)
+    print(train_gcn_feats.shape)
+    print(train_adj_list)
+
+    print("np.memmap sample:", mem_train_adj_list[:5, :5])
+    print("np.array sample:", train_adj_list[:5, :5])
+    #print("Loaded array sample:", loaded_array[:5, :5])
+    '''
+        
     # create a data generator for the train data
     batch_size = params['batch_size']
     generator_batch_size = params['val_batch']
     # Prepare the train data generator
     train_gen =  data_generator(train_gcn_feats, train_adj_list, train_keep["Cell_Line"].values.reshape(-1,1), train_keep["Cell_Line"].values.reshape(-1,1), 
-    train_keep["Cell_Line"].values.reshape(-1,1), train_keep["AUC"].values.reshape(-1,1), batch_size, shuffle=True, peek=True, verbose=False)
+        train_keep["Cell_Line"].values.reshape(-1,1), train_keep["AUC"].values.reshape(-1,1), batch_size, shuffle=True, peek=True, verbose=False)
 
     # try also with the vallidation data generator
     val_gen =  data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), 
-    valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, peek=True)
+        valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, peek=True, verbose=False)
 
     steps_per_epoch = int(np.ceil(len(train_gcn_feats) / batch_size))
     train_steps = int(np.ceil(len(train_gcn_feats) / generator_batch_size))
@@ -211,27 +283,27 @@ def run(params: Dict):
     training = False
     dropout1 = 0.10
     dropout2 = 0.20
+
     check = deepcdrgcn(dict_features, dict_adj_mat, samp_drug, samp_ach, cancer_dna_methy_model, cancer_gen_expr_model, cancer_gen_mut_model,  training = training, dropout1 = dropout1, dropout2 = dropout2)
-    
     # compile the model
     lr = params['learning_rate']
     check.compile(loss = tf.keras.losses.MeanSquaredError(), 
-                      # optimizer = tf.keras.optimizers.Adam(lr=1e-3),
-                    optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, amsgrad=False), 
-                    metrics = [tf.keras.metrics.RootMeanSquaredError()])
+                        # optimizer = tf.keras.optimizers.Adam(lr=1e-3),
+                        optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, amsgrad=False), 
+                        metrics = [tf.keras.metrics.RootMeanSquaredError()])
 
     # fit the model              
     epoch_num = params['epochs']
     patience_val = params['patience']
     check.fit(train_gen,
-         validation_data = val_gen, 
-         epochs = epoch_num, steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
-         callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = patience_val, restore_best_weights=True, 
-                                                     mode = "min") ,validation_batch_size = generator_batch_size)
+            validation_data = val_gen, 
+            epochs = epoch_num, steps_per_epoch=steps_per_epoch, validation_steps=validation_steps,
+            callbacks = tf.keras.callbacks.EarlyStopping(monitor = "val_loss", patience = patience_val, restore_best_weights=True, 
+                                                        mode = "min") ,validation_batch_size = generator_batch_size)
     
 
     # generator_batch_size = 32
-    y_val_preds, y_val_true = batch_predict(check, data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), validation_steps)
+    y_val_preds, y_val_true = batch_predict(check, data_generator(valid_gcn_feats, valid_adj_list, valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["Cell_Line"].values.reshape(-1,1), valid_keep["AUC"].values.reshape(-1,1), generator_batch_size, verbose = False, shuffle = False), validation_steps)
     
 
     # ------------------------------------------------------

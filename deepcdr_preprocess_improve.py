@@ -13,6 +13,9 @@ from pathlib import Path
 from typing import Dict
 import joblib
 from sklearn.preprocessing import StandardScaler
+from pympler import asizeof
+#import h5py
+from numpy.lib.format import open_memmap
 
 # # device ID
 # os.environ["CUDA_VISIBLE_DEVICES"] = "7"
@@ -166,8 +169,8 @@ def run(params: Dict):
         drug_id_cur = all_smiles.iloc[i,:]["improve_chem_id"]
         adj_list = mol_object[0].canon_adj_list
         l = CalculateGraphFeat(features,adj_list, Max_atoms, israndom = False)
-        dict_features[str(drug_id_cur)] = l[0]
-        dict_adj_mat[str(drug_id_cur)] = l[1]
+        dict_features[str(drug_id_cur)] = l[0].astype("float16")
+        dict_adj_mat[str(drug_id_cur)] = l[1].astype("float16")
 
     # save the features and adjacency matrices
     with open(os.path.join(params["output_dir"], "drug_features.pickle"), "wb") as f:
@@ -208,6 +211,51 @@ def run(params: Dict):
 
         # # [Req] Save y dataframe for the current stage
         frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
+
+        gcn_feats = []
+        adj_list = []
+        for drug_id in rsp["improve_chem_id"].values:
+            gcn_feats.append(dict_features[drug_id])
+            adj_list.append(dict_adj_mat[drug_id])
+        
+        total_size_GB = asizeof.asizeof(gcn_feats) / (1024**3)
+        print(f"Total size of gcn list: {total_size_GB:.4f} GB")
+        total_size_GB = asizeof.asizeof(adj_list) / (1024**3)
+        print(f"Total size of adj list: {total_size_GB:.4f} GB")
+
+        #gcn_feats = np.array(gcn_feats)
+        #adj_list = np.array(adj_list)
+        '''
+        total_size_GB = asizeof.asizeof(gcn_feats) / (1024**3)
+        print(f"Total size of gcn list: {total_size_GB:.4f} GB")
+        print(f'Shape of dataset: {gcn_feats.shape}')
+        total_size_GB = asizeof.asizeof(adj_list) / (1024**3)
+        print(f"Total size of adj list: {total_size_GB:.4f} GB")
+        print(f'Shape of dataset: {adj_list.shape}')
+        '''
+
+        #np.save(os.path.join(params["output_dir"], f'{stage}_drug_features.npy'), gcn_feats)
+        #np.save(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'), adj_list)
+
+        gcn_feats_memmap = open_memmap(os.path.join(params["output_dir"], f'{stage}_drug_features.npy'), dtype=gcn_feats[0].dtype, mode='w+', shape=(len(gcn_feats), gcn_feats[0].shape[0], gcn_feats[0].shape[1]))
+        gcn_feats_memmap[:] = np.array(gcn_feats)  # Initialize with some data
+        print(gcn_feats_memmap.shape)
+        gcn_feats_memmap.flush() 
+        del gcn_feats
+        del gcn_feats_memmap
+
+        adj_list_memmap = open_memmap(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'), dtype=adj_list[0].dtype, mode='w+', shape=(len(adj_list), adj_list[0].shape[0], adj_list[0].shape[1]))
+        adj_list_memmap[:] = np.array(adj_list)  # Initialize with some data
+        print(adj_list_memmap.shape)
+        adj_list_memmap.flush()
+        del adj_list
+        del adj_list_memmap
+
+        # Save the array to an HDF5 file
+        #with h5py.File(os.path.join(params["output_dir"], f'{stage}_drug_features.h5'), 'w') as hdf:
+        #    hdf.create_dataset('gcn_feats', data=gcn_feats, chunks=True)
+        #with h5py.File(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.h5'), 'w') as hdf:
+        #    hdf.create_dataset('adj_list', data=adj_list, chunks=True)
 
     return params["output_dir"]
 

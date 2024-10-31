@@ -2,7 +2,6 @@ import numpy as np
 
 def data_generator(train_gcn_feats, train_adj_list, omic_data1, omic_data2, omic_data3, y_data, batch_size, shuffle=True, peek=False, verbose=True):
     num_samples = len(train_gcn_feats)
-    # print(num_samples)
     indices = np.arange(num_samples)
     
     if peek:    # Give first batch unshuffled and don't change start index when peeking for training
