@@ -145,6 +145,9 @@ def run(params: Dict):
     # reset index of the smiles file
     all_smiles = smi.reset_index()
 
+    # rename the columns
+    all_smiles.columns = ['improve_chem_id', 'canSMILES']
+
     # get the maximum number of atoms
     atom_list = []
     for i, smiles in enumerate(all_smiles["canSMILES"].values):
