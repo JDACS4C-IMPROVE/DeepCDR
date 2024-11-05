@@ -11,11 +11,12 @@ def data_generator(train_gcn_feats, train_adj_list, omic_data1, omic_data2, omic
         batch_x_df = train_gcn_feats[:end]
         batch_x_da = train_adj_list[:end]
         batch_x_od1 = omic_data1[:end]
-        batch_x_od2 = omic_data2[:end]
-        batch_x_od3 = omic_data3[:end]
+        batch_x_od2 = omic_data1[:end]
+        batch_x_od3 = omic_data1[:end]
         batch_y = y_data[:end]
+
         peek = False
-        yield ([batch_x_df, batch_x_da, batch_x_od1, batch_x_od2, batch_x_od3], batch_y)
+        yield ((batch_x_df, batch_x_da, batch_x_od1, batch_x_od2, batch_x_od3), batch_y)
 
     while True:    # Loop indefinitely for epochs
         # Shuffle indices at the start of each epoch after the peek, if shuffle is enabled
@@ -43,12 +44,12 @@ def data_generator(train_gcn_feats, train_adj_list, omic_data1, omic_data2, omic
             batch_x_df = train_gcn_feats[batch_indices]
             batch_x_da = train_adj_list[batch_indices]
             batch_x_od1 = omic_data1[batch_indices]
-            batch_x_od2 = omic_data2[batch_indices]
-            batch_x_od3 = omic_data3[batch_indices]
+            batch_x_od2 = omic_data1[batch_indices]
+            batch_x_od3 = omic_data1[batch_indices]
             batch_y = y_data[batch_indices]
 
             # Yield the current batch
-            yield ([batch_x_df, batch_x_da, batch_x_od1, batch_x_od2, batch_x_od3], batch_y)
+            yield ((batch_x_df, batch_x_da, batch_x_od1, batch_x_od2, batch_x_od3), batch_y)
 
 
 def batch_predict(model, data_generator, steps, flatten=True, verbose=False):
