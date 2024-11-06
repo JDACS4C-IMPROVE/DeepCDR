@@ -12,6 +12,9 @@ import numpy as np
 from tensorflow.keras import backend as K
 from create_data_generator import data_generator, batch_predict
 
+# Setup mixed precision if supported and beneficial for your hardware
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy("mixed_float16")  # Adjust this depending on hardware
 
 # [Req] IMPROVE imports
 from improvelib.applications.drug_response_prediction.config import DRPTrainConfig
@@ -28,14 +31,28 @@ from model_params_def import train_params # [Req]
 filepath = Path(__file__).resolve().parent # [Req]
 
 # wrap the generator function with tf.data.Dataset
-def create_tf_dataset(generator_func, batch_size, output_signature, *generator_args):
+def create_tf_dataset(generator_func, output_signature, *generator_args):
     dataset = tf.data.Dataset.from_generator(
-        lambda: generator_func(*generator_args, batch_size=batch_size),
+        lambda: generator_func(*generator_args),  # no batch_size here
         output_signature=output_signature
     )
+
+    # Apply selective conversion, avoiding string tensors
+    def convert_structure(x, y):
+        # Convert each element in x as per dtype
+        converted_x = [
+            tf.convert_to_tensor(item) if item.dtype.is_floating else item for item in x
+        ]
+        # Convert y as needed
+        converted_y = tf.convert_to_tensor(y) if y.dtype.is_floating else y
+        return tuple(converted_x), converted_y
     
-    # qpply batching and prefetching for performance
-    dataset = dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+    dataset = dataset.map(convert_structure, num_parallel_calls=tf.data.AUTOTUNE)
+    
+    # Apply prefetching for performance
+    dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
+    dataset = dataset.map(convert_structure, num_parallel_calls=tf.data.AUTOTUNE)
+
     return dataset
 
 def load_memmap_unknown_shape(directory, filename, mode='r'):
@@ -247,39 +264,46 @@ def run(params: Dict):
 
         train_cell_line = np.array(train_keep["Cell_Line"].values.reshape(-1, 1), dtype=np.str_).reshape(-1, 1)
         train_response = np.array(train_keep["AUC"].values.reshape(-1, 1), dtype=np.str_).reshape(-1, 1)
-
-        train_dataset = tf.data.Dataset.from_generator(
-            lambda: data_generator(
-                train_gcn_feats, train_adj_list,
-                train_cell_line,
-                train_cell_line,
-                train_cell_line,
-                train_response,
-                batch_size, shuffle=True, peek=True, verbose=False
-            ),
-            output_signature=train_output_signature
-        ).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-
         val_cell_line = np.array(valid_keep["Cell_Line"].values.reshape(-1, 1), dtype=np.str_).reshape(-1, 1)
         val_response = np.array(valid_keep["AUC"].values.reshape(-1, 1), dtype=np.str_).reshape(-1, 1)
 
-        val_dataset = tf.data.Dataset.from_generator(
-            lambda: data_generator(
-                valid_gcn_feats, valid_adj_list,
-                val_cell_line,
-                val_cell_line,
-                val_cell_line,
-                val_response,
-                generator_batch_size, peek=True, verbose=False
-            ),
-            output_signature=val_output_signature
-        ).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        # Load datasets using the optimized function
+        train_dataset = create_tf_dataset(
+            data_generator, train_output_signature, 
+            train_gcn_feats, train_adj_list,
+            train_cell_line,
+            train_cell_line,
+            train_cell_line,
+            train_response,
+            batch_size,
+            True, # shuffle
+            True, # peek
+            False # verbose
+        )
+
+        # Validation dataset without shuffling
+        val_dataset = create_tf_dataset(
+            data_generator, val_output_signature, 
+            valid_gcn_feats, valid_adj_list,
+            val_cell_line,
+            val_cell_line,
+            val_cell_line,
+            val_response,
+            generator_batch_size, 
+            True, # shuffle
+            True, # peek
+            False # verbose
+        )
+
+        #train_dataset = train_dataset.map(lambda x, y: (tf.convert_to_tensor(x), tf.convert_to_tensor(y)), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+        #val_dataset = val_dataset.map(lambda x, y: (tf.convert_to_tensor(x), tf.convert_to_tensor(y)), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
         # apply options for better distributed training
-        options = tf.data.Options()
-        options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-        train_dataset = train_dataset.with_options(options)
-        val_dataset = val_dataset.with_options(options)
+        #options = tf.data.Options()
+        #options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+        #train_dataset = train_dataset.with_options(options)
+        #val_dataset = val_dataset.with_options(options)
 
         steps_per_epoch = int(np.ceil(len(train_gcn_feats) / batch_size))
         #train_steps = int(np.ceil(len(train_gcn_feats) / generator_batch_size))
@@ -298,7 +322,7 @@ def run(params: Dict):
                             # optimizer = tf.keras.optimizers.Adam(lr=1e-3),
                             optimizer = tf.keras.optimizers.Adam(learning_rate=lr, beta_1=0.9, beta_2=0.999, amsgrad=False), 
                             metrics = [tf.keras.metrics.RootMeanSquaredError()])
-
+        
         # fit the model              
         epoch_num = params['epochs']
         patience_val = params['patience']

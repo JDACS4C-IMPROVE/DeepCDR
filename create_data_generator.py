@@ -11,8 +11,8 @@ def data_generator(train_gcn_feats, train_adj_list, omic_data1, omic_data2, omic
         batch_x_df = train_gcn_feats[:end]
         batch_x_da = train_adj_list[:end]
         batch_x_od1 = omic_data1[:end]
-        batch_x_od2 = omic_data1[:end]
-        batch_x_od3 = omic_data1[:end]
+        batch_x_od2 = omic_data2[:end]
+        batch_x_od3 = omic_data3[:end]
         batch_y = y_data[:end]
 
         peek = False
@@ -44,8 +44,8 @@ def data_generator(train_gcn_feats, train_adj_list, omic_data1, omic_data2, omic
             batch_x_df = train_gcn_feats[batch_indices]
             batch_x_da = train_adj_list[batch_indices]
             batch_x_od1 = omic_data1[batch_indices]
-            batch_x_od2 = omic_data1[batch_indices]
-            batch_x_od3 = omic_data1[batch_indices]
+            batch_x_od2 = omic_data2[batch_indices]
+            batch_x_od3 = omic_data3[batch_indices]
             batch_y = y_data[batch_indices]
 
             # Yield the current batch
