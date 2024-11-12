@@ -12,25 +12,23 @@ from pprint import pformat
 from typing import Dict, Union
 from create_data_generator import data_generator, batch_predict
 
-
-
-
 # load models for preprocessed data
-cancer_gen_expr_model = tf.keras.models.load_model(os.path.join(data_dir,"cancer_gen_expr_model"))
-cancer_gen_mut_model = tf.keras.models.load_model(os.path.join(data_dir, "cancer_gen_mut_model"))
-cancer_dna_methy_model = tf.keras.models.load_model(os.path.join(data_dir, "cancer_dna_methy_model"))
+cancer_gen_expr_model = tf.keras.models.load_model(os.path.join('exp_result',"cancer_gen_expr_model"))
+cancer_gen_mut_model = tf.keras.models.load_model(os.path.join('exp_result', "cancer_gen_mut_model"))
+cancer_dna_methy_model = tf.keras.models.load_model(os.path.join('exp_result', "cancer_dna_methy_model"))
 
+# set model weight trainig to false
 cancer_gen_expr_model.trainable = False
 cancer_gen_mut_model.trainable = False
 cancer_dna_methy_model.trainable = False
 
-with open(os.path.join(data_dir, "drug_features.pickle"),"rb") as f:
+with open(os.path.join('exp_result', "drug_features.pickle"),"rb") as f:
     dict_features = pickle.load(f)
 
-with open(os.path.join(data_dir, "norm_adj_mat.pickle"),"rb") as f:
+with open(os.path.join('exp_result', "norm_adj_mat.pickle"),"rb") as f:
     dict_adj_mat = pickle.load(f)
 
-test_keep = pd.read_csv(os.path.join(data_dir, "test_y_data.csv"))
+test_keep = pd.read_csv(os.path.join('exp_result', "test_y_data.csv"))
 test_keep.columns = ["Cell_Line", "Drug_ID", "AUC"]
 
 test_gcn_feats = []
@@ -43,10 +41,12 @@ test_gcn_feats = np.array(test_gcn_feats).astype("float32")
 test_adj_list = np.array(test_adj_list).astype("float32")
 
 # load trained model here
-gCSI_model = tf.keras.models.load_model('models/TN_model_with_new_data.h5')
+CCLE_model = tf.keras.models.load_model('exp_result/DeepCDR_model/DeepCDR_model')
 
-# redefine the model along with train=True to get the dropout induced predictions
+samp_drug = test_keep["Drug_ID"].unique()[-1]
+samp_ach = np.array(test_keep["Cell_Line"].unique()[-1])
 
+# redefine the model
 training = True
 dropout1 = 0.10
 dropout2 = 0.20
@@ -136,11 +136,34 @@ final_out = final_out_layer(x)
 simplecdr = tf.keras.models.Model([input_gcn_features, input_norm_adj_mat, input_gen_expr1,
                                    input_gen_methy1, input_gen_mut1], final_out)
 
-    
-    
-    
-    # # get the predictions on the test set
-    generator_batch_size = params['infer_batch']
-    test_steps = int(np.ceil(len(test_gcn_feats) / generator_batch_size))
-    preds_test, target_test = batch_predict(check, data_generator(test_gcn_feats, test_adj_list, test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), test_steps)
-    print(preds_test.shape, target_test.shape)
+weights_train = CCLE_model.get_weights()
+simplecdr.set_weights(weights_train)
+weights_new = simplecdr.get_weights()
+
+generator_batch_size = 32
+test_steps = int(np.ceil(len(test_gcn_feats) / generator_batch_size))
+
+# get predictions 25 times
+all_predicted_values = []
+for i in range(25):
+    preds_test, target_test = batch_predict(simplecdr, data_generator(test_gcn_feats, test_adj_list, test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["Cell_Line"].values.reshape(-1,1), test_keep["AUC"].values.reshape(-1,1), generator_batch_size, shuffle = False), test_steps)
+    all_predicted_values.append(preds_test)
+
+preds_df = pd.DataFrame(all_predicted_values)
+preds_df_final = preds_df.T
+preds_df_final.columns = ['predicted_vals_' + str(i + 1) for i in range(preds_df_final.shape[1])]
+
+combined_df = pd.concat((preds_df_final, pd.DataFrame(target_test, columns = ['target_auc'])), axis = 1)
+
+# width
+li_test = np.percentile(preds_df_final, axis = 1, q = (2.5, 97.5))[0,:].reshape(-1,1)     
+ui_test = np.percentile(preds_df_final, axis = 1, q = (2.5, 97.5))[1,:].reshape(-1,1)   
+
+width_test = ui_test - li_test
+avg_width_test = width_test.mean(0)[0]
+print("width: ", avg_width_test)
+
+# coverage
+ind_test = (target_test >= li_test) & (target_test <= ui_test)
+coverage_test= ind_test.mean(0)[0]
+print("Coverage: ", coverage_test)
