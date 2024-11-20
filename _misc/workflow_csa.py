@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Sequence, Tuple, Union
 
@@ -9,9 +10,11 @@ from parsl import python_app
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import LocalProvider
-
+import os
 import csa_params_def as CSA
 from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
+
+start_full_wf = time.time()
 
 # Initialize parameters for CSA
 additional_definitions = CSA.additional_definitions
@@ -65,6 +68,7 @@ def train(params, hp_model, source_data_name, split):
     import json
     import subprocess
     import time
+    import os
     from pathlib import Path
 
     hp = hp_model[source_data_name]
@@ -110,6 +114,8 @@ def train(params, hp_model, source_data_name, split):
         # Logger
         print(f"returncode = {result.returncode}")
         result_file_name_stdout = model_dir / 'logs.txt'
+        if model_dir.exists() is False: # If subprocess fails, model_dir may not be created and we need to write the log files in model_dir
+            os.makedirs(model_dir, exist_ok=True)
         with open(result_file_name_stdout, 'w') as file:
             file.write(result.stdout)
 
@@ -134,6 +140,7 @@ def infer(params, source_data_name, target_data_name, split):
     import subprocess
     import json
     import time
+    import os
     from pathlib import Path
 
     model_dir = params['model_dir'] / f"{source_data_name}" / f"split_{split}"
@@ -172,6 +179,8 @@ def infer(params, source_data_name, target_data_name, split):
     # Logger
     print(f"returncode = {result.returncode}")
     result_file_name_stdout = infer_dir / 'logs.txt'
+    if infer_dir.exists() is False:
+        os.makedirs(infer_dir, exist_ok=True)
     with open(result_file_name_stdout, 'w') as file:
         file.write(result.stdout)
 
@@ -205,8 +214,10 @@ params['model_dir'] = Path(params['output_dir']) / 'models'
 params['infer_dir'] = Path(params['output_dir']) / 'infer'
 
 #Model scripts
-params['train_python_script'] = f"{params['model_name']}_train_improve.py"
-params['infer_python_script'] = f"{params['model_name']}_infer_improve.py"
+params['train_python_script'] = os.path.join(
+    params['model_scripts_dir'], f"{params['model_name']}_train_improve.py")
+params['infer_python_script'] = os.path.join(
+    params['model_scripts_dir'], f"{params['model_name']}_infer_improve.py")
 
 #Read Hyperparameters file
 with open(params['hyperparameters_file']) as f:
@@ -227,9 +238,23 @@ for source_data_name in params['source_datasets']:
 infer_futures = []
 for future_t in train_futures:
     for target_data_name in params['target_datasets']:
-        infer_futures.append(infer(params, future_t.result()['source_data_name'], target_data_name, future_t.result()['split']))
+        infer_futures.append(infer(params, future_t.result()['source_data_name'],
+                                   target_data_name, future_t.result()['split']))
 
 for future_i in infer_futures:
     print(future_i.result())
 
 parsl.dfk().cleanup()
+
+# Timer
+time_diff = time.time() - start_full_wf
+hours = int(time_diff // 3600)
+minutes = int((time_diff % 3600) // 60)
+seconds = time_diff % 60
+time_diff_dict = {'hours': hours,
+                  'minutes': minutes,
+                  'seconds': seconds}
+dir_to_save = params['output_dir']
+filename = 'train_infer_runtime.json'
+with open(Path(dir_to_save) / filename, 'w') as json_file:
+    json.dump(time_diff_dict, json_file, indent=4)
