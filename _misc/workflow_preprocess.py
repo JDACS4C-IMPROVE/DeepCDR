@@ -1,9 +1,11 @@
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Sequence, Tuple, Union
 
+import os
 import parsl
 from parsl import python_app
 from parsl.config import Config
@@ -12,6 +14,8 @@ from parsl.providers import LocalProvider
 
 import csa_params_def as CSA
 from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
+
+start_full_wf = time.time()
 
 # Initialize parameters for CSA
 additional_definitions = CSA.additional_definitions
@@ -35,7 +39,7 @@ config_lambda = Config(
             address='127.0.0.1',
             label="htex_preprocess",
             cpu_affinity="alternating",
-            available_accelerators=params['available_accelerators'],
+            available_accelerators=params["available_accelerators"],
             #max_workers_per_node=2, ## IS NOT SUPPORTED IN Parsl version: 2023.06.19. CHECK HOW TO USE THIS???
             worker_debug=True,
             worker_port_range=worker_port_range,
@@ -65,6 +69,7 @@ def preprocess(inputs=[]):
     import json
     import subprocess
     import time
+    import os
     import warnings
     from pathlib import Path
 
@@ -160,6 +165,8 @@ def preprocess(inputs=[]):
         # Logger
         print(f"returncode = {result.returncode}")
         result_file_name_stdout = ml_data_dir / 'logs.txt'
+        if ml_data_dir.exists() is False:
+            os.makedirs(ml_data_dir, exist_ok=True)
         with open(result_file_name_stdout, 'w') as file:
             file.write(result.stdout)
 
@@ -188,17 +195,18 @@ fdir = Path(__file__).resolve().parent
 y_col_name = params['y_col_name']
 logger = logging.getLogger(f"{params['model_name']}")
 
-#Output directories for preprocess, train and infer
+# Output directories for preprocess, train and infer
 params['ml_data_dir'] = Path(params['output_dir']) / 'ml_data' 
 
-#Model scripts
-params['preprocess_python_script'] = f"{params['model_name']}_preprocess_improve.py"
+# Model scripts
+params['preprocess_python_script'] = os.path.join(
+    params['model_scripts_dir'], f"{params['model_name']}_preprocess_improve.py")
 
 ##########################################################################
 ##################### START PARSL PARALLEL EXECUTION #####################
 ##########################################################################
 
-##Preprocess execution with Parsl
+## Preprocess execution with Parsl
 preprocess_futures = []
 for source_data_name in params['source_datasets']:
     for split in params['split']:
@@ -210,3 +218,16 @@ for future_p in preprocess_futures:
     print(future_p.result())
 
 parsl.dfk().cleanup()
+
+# Timer
+time_diff = time.time() - start_full_wf
+hours = int(time_diff // 3600)
+minutes = int((time_diff % 3600) // 60)
+seconds = time_diff % 60
+time_diff_dict = {'hours': hours,
+                  'minutes': minutes,
+                  'seconds': seconds}
+dir_to_save = params['output_dir']
+filename = 'preprocess_runtime.json'
+with open(Path(dir_to_save) / filename, 'w') as json_file:
+    json.dump(time_diff_dict, json_file, indent=4)
