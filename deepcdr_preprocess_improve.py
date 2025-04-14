@@ -13,9 +13,12 @@ from pathlib import Path
 from typing import Dict
 import joblib
 from sklearn.preprocessing import StandardScaler
-from pympler import asizeof
+#from pympler import asizeof
 #import h5py
 from numpy.lib.format import open_memmap
+import time
+import gc
+import psutil
 
 # # device ID
 # os.environ["CUDA_VISIBLE_DEVICES"] = "7"
@@ -34,6 +37,32 @@ import improvelib.applications.drug_response_prediction.drp_utils as drp
 from model_params_def import preprocess_params # [Req]
 
 filepath = Path(__file__).resolve().parent
+
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+print(f"Total CPUs available: {os.cpu_count()}")
+
+def process_chunk(drug_ids, dict_features, dict_adj_mat):
+    # Preallocate arrays
+    num_drugs = len(drug_ids)
+    feature_shape = next(iter(dict_features.values())).shape
+    adj_shape = next(iter(dict_adj_mat.values())).shape
+
+    gcn_feats_chunk = np.zeros((num_drugs, *feature_shape), dtype=np.float16)
+    adj_list_chunk = np.zeros((num_drugs, *adj_shape), dtype=np.float16)
+
+    # Fill preallocated arrays
+    for i, drug_id in enumerate(drug_ids):
+        gcn_feats_chunk[i] = dict_features[drug_id]
+        adj_list_chunk[i] = dict_adj_mat[drug_id]
+
+    return gcn_feats_chunk, adj_list_chunk
+
+
+# Function to monitor memory usage
+def log_memory_usage():
+    process = psutil.Process()
+    memory_info = process.memory_info()
+    print(f"Memory usage: {memory_info.rss / (1024 ** 3):.2f} GB")  # Resident memory in GB
 
 def get_emb_models(dataset, norm = False):
     std = StandardScaler()
@@ -65,6 +94,7 @@ def NormalizeAdj(adj):
     d = sp.diags(np.power(np.array(adj.sum(1)), -0.5).flatten(), 0).toarray()
     a_norm = adj.dot(d).transpose().dot(d)
     return a_norm
+
 def random_adjacency_matrix(n):   
     matrix = [[random.randint(0, 1) for i in range(n)] for j in range(n)]
     # No vertex connects to itself
@@ -103,11 +133,14 @@ def run(params: Dict):
 
     :params: Dict params: A dictionary of CANDLE/IMPROVE keywords and parsed values.
     """
-
     # ----------------------------------------
     # [Req] Load omics data - and set index
     # ---------------------
+    start_time = time.time()
+
     print("\nLoad omics data ...")
+    omics_start = time.time()
+
     omics_obj = omics_utils.OmicsLoader(params)
     ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
     ge = ge.set_index('improve_sample_id')
@@ -130,14 +163,13 @@ def run(params: Dict):
     cancer_gen_expr_model.save(os.path.join(params["output_dir"], "cancer_gen_expr_model"))
     cancer_gen_mut_model.save(os.path.join(params["output_dir"],"cancer_gen_mut_model"))
     cancer_dna_methy_model.save(os.path.join(params["output_dir"], "cancer_dna_methy_model"))
-
-    
-
-
+    print(f"Loaded and processed omics data in {(time.time() - omics_start) / 60:.2f} minutes")
     # ------------------------------------------------------
     # [Req] Load drug data
     # ------------------------------------------------------
     print("\nLoad drugs data...")
+    drugs_start = time.time()
+
     drugs_obj = drugs_utils.DrugsLoader(params)
     smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
     # --------------------
@@ -181,18 +213,23 @@ def run(params: Dict):
 
     with open(os.path.join(params["output_dir"], "norm_adj_mat.pickle"), "wb") as f:
         pickle.dump(dict_adj_mat, f)
+    
+    print(f"Loaded drug data and prepared features and adjacency matrics in {(time.time() - drugs_start) / 60:.2f} minutes")
 
     # -------------------------------------------
     # Construct ML data for every stage (train, val, test)
     # [Req] All models must load response data (y data) using DrugResponseLoader().
     # -------------------------------------------
+    construct_start = time.time()
+
     stages = {"train": params["train_split_file"],
               "val": params["val_split_file"],
               "test": params["test_split_file"]}
 
-
     for stage, split_file in stages.items():
-
+        
+        stage_start = time.time()
+        
         # ------------------------
         # [Req] Load response data
         # ------------------------
@@ -212,53 +249,104 @@ def run(params: Dict):
         # Give a name to the response file
         data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
 
-        # # [Req] Save y dataframe for the current stage
+        # [Req] Save y dataframe for the current stage
         frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
 
-        gcn_feats = []
-        adj_list = []
-        for drug_id in rsp["improve_chem_id"].values:
-            gcn_feats.append(dict_features[drug_id])
-            adj_list.append(dict_adj_mat[drug_id])
-        
-        total_size_GB = asizeof.asizeof(gcn_feats) / (1024**3)
-        print(f"Total size of gcn list: {total_size_GB:.4f} GB")
-        total_size_GB = asizeof.asizeof(adj_list) / (1024**3)
-        print(f"Total size of adj list: {total_size_GB:.4f} GB")
+        # Initialize memmap files
+        num_drugs = len(rsp["improve_chem_id"].values)
+        gcn_feat_shape = dict_features[next(iter(dict_features))].shape
+        adj_mat_shape = dict_adj_mat[next(iter(dict_adj_mat))].shape
 
-        #gcn_feats = np.array(gcn_feats)
-        #adj_list = np.array(adj_list)
-        '''
-        total_size_GB = asizeof.asizeof(gcn_feats) / (1024**3)
-        print(f"Total size of gcn list: {total_size_GB:.4f} GB")
-        print(f'Shape of dataset: {gcn_feats.shape}')
-        total_size_GB = asizeof.asizeof(adj_list) / (1024**3)
-        print(f"Total size of adj list: {total_size_GB:.4f} GB")
-        print(f'Shape of dataset: {adj_list.shape}')
-        '''
+        # Explicitly set dtype for memmap
+        gcn_feats_dtype = dict_features[next(iter(dict_features))].dtype  # Get the dtype of the features
+        adj_mat_dtype = dict_adj_mat[next(iter(dict_adj_mat))].dtype      # Get the dtype of the adjacency matrix
 
-        #np.save(os.path.join(params["output_dir"], f'{stage}_drug_features.npy'), gcn_feats)
-        #np.save(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'), adj_list)
+        print("Number of drugs:", num_drugs)
+        print("GCN Feature Shape:", gcn_feat_shape)
+        print("GCN Feature Dtype:", gcn_feats_dtype)
+        print("Adj Matrix Shape:", adj_mat_shape)
+        print("Adj Matrix Dtype:", adj_mat_dtype)
 
-        gcn_feats_memmap = open_memmap(os.path.join(params["output_dir"], f'{stage}_drug_features.npy'), dtype=gcn_feats[0].dtype, mode='w+', shape=(len(gcn_feats), gcn_feats[0].shape[0], gcn_feats[0].shape[1]))
-        gcn_feats_memmap[:] = np.array(gcn_feats)  # Initialize with some data
-        print(gcn_feats_memmap.shape)
-        gcn_feats_memmap.flush() 
-        del gcn_feats
-        del gcn_feats_memmap
+        gcn_feats_memmap = open_memmap(
+            os.path.join(params["output_dir"], f'{stage}_drug_features.npy'),
+            dtype=gcn_feats_dtype, mode='w+', shape=(num_drugs, *gcn_feat_shape)
+        )
 
-        adj_list_memmap = open_memmap(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'), dtype=adj_list[0].dtype, mode='w+', shape=(len(adj_list), adj_list[0].shape[0], adj_list[0].shape[1]))
-        adj_list_memmap[:] = np.array(adj_list)  # Initialize with some data
-        print(adj_list_memmap.shape)
+        adj_list_memmap = open_memmap(
+            os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'),
+            dtype=adj_mat_dtype, mode='w+', shape=(num_drugs, *adj_mat_shape)
+        )
+
+        # Parallel processing using ProcessPoolExecutor
+        chunk_size = params["chunk_size"]  # Adjust chunk size based on memory capacity
+        drug_ids = rsp["improve_chem_id"].values
+        chunks = [drug_ids[i:i + chunk_size] for i in range(0, num_drugs, chunk_size)]
+        total_chunks = (num_drugs + chunk_size - 1) // chunk_size
+        print(f"Total chunks: {total_chunks}")
+
+        # Monitor memory usage at the start
+        log_memory_usage()
+
+        completed_chunks = 0
+        flush_batch_size = 10  # Reopen the memmap every x chunks
+
+        for idx, chunk in enumerate(chunks):
+            start_idx = idx * chunk_size
+            end_idx = min(start_idx + chunk_size, num_drugs)
+
+            # Process the chunk
+            gcn_chunk, adj_chunk = process_chunk(chunk, dict_features, dict_adj_mat)
+
+            # Write processed data to memmap
+            gcn_feats_memmap[start_idx:end_idx] = gcn_chunk
+            adj_list_memmap[start_idx:end_idx] = adj_chunk
+
+            # Update and print progress
+            completed_chunks += 1
+            progress = (completed_chunks / total_chunks) * 100
+            print(f"Progress: {progress:.2f}% ({completed_chunks}/{total_chunks} chunks completed)")
+            log_memory_usage()
+
+            # Reopen memmap files every `flush_batch_size` chunks to release memory
+            if completed_chunks % flush_batch_size == 0:
+                print(f"Flushing and reopening memmap after {completed_chunks} chunks.")
+                gcn_feats_memmap.flush()
+                adj_list_memmap.flush()
+
+                # Explicitly close and reopen to release memory
+                del gcn_feats_memmap
+                del adj_list_memmap
+                gc.collect()
+
+                gcn_feats_memmap = open_memmap(
+                    os.path.join(params["output_dir"], f'{stage}_drug_features.npy'),
+                    dtype=gcn_feats_dtype, mode='r+'
+                )
+                adj_list_memmap = open_memmap(
+                    os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.npy'),
+                    dtype=adj_mat_dtype, mode='r+'
+                )
+
+            # Clear intermediate data to free memory
+            del gcn_chunk, adj_chunk
+            gc.collect()
+
+        # Final flush after all chunks are processed
+        gcn_feats_memmap.flush()
         adj_list_memmap.flush()
-        del adj_list
-        del adj_list_memmap
+        print("Final data flush completed.")
 
-        # Save the array to an HDF5 file
-        #with h5py.File(os.path.join(params["output_dir"], f'{stage}_drug_features.h5'), 'w') as hdf:
-        #    hdf.create_dataset('gcn_feats', data=gcn_feats, chunks=True)
-        #with h5py.File(os.path.join(params["output_dir"], f'{stage}_norm_adj_mat.h5'), 'w') as hdf:
-        #    hdf.create_dataset('adj_list', data=adj_list, chunks=True)
+        # Clean up memmap objects
+        del gcn_feats_memmap
+        del adj_list_memmap
+        gc.collect()
+
+        print(f"Processed stage '{stage}' in {(time.time() - stage_start) / 60:.2f} minutes")
+        print("\nMemmap-based processing completed.")
+        log_memory_usage()
+    
+    print(f"Constructed response and memmap files in {(time.time() - construct_start) / 60:.2f} minutes")
+    print(f"Total execution time: {(time.time() - start_time) / 60:.2f} minutes")
 
     return params["output_dir"]
 

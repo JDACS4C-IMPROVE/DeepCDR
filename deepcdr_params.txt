@@ -9,6 +9,7 @@ data_format = .csv
 y_data_files = [["response.tsv"]]
 x_data_canc_files = [["cancer_gene_expression.tsv", ["Gene_Symbol"]], ["cancer_mutation_count.tsv", ["Gene_Symbol"]], ["cancer_DNA_methylation.tsv", ["Gene_Symbol"]]]
 x_data_drug_files = [["drug_SMILES.tsv"]]
+chunk_size = 500
 
 [Train]
 data_format = .csv
