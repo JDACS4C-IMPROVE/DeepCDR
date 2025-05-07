@@ -109,7 +109,7 @@ def run(params: Dict):
                                         benchmark_dir = params['input_dir'], 
                                         cell_column_name = params['canc_col_name'], 
                                         norm = params['cell_transcriptomic_transform'])
-    mut = drp.get_cell_mutation(file = params['cell_mutation_file'], 
+    mut = drp.get_cell_mutations(file = params['cell_mutation_file'], 
                                         benchmark_dir = params['input_dir'], 
                                         cell_column_name = params['canc_col_name'], 
                                         norm = params['cell_mutation_transform'])
