@@ -23,8 +23,6 @@ from improvelib.applications.drug_response_prediction.config import DRPPreproces
 from improvelib.utils import str2bool
 import improvelib.utils as frm
 # Application-specific (DRP) imports
-import improvelib.applications.drug_response_prediction.drug_utils as drugs_utils
-import improvelib.applications.drug_response_prediction.omics_utils as omics_utils
 import improvelib.applications.drug_response_prediction.drp_utils as drp
 
 # Model-specific imports
