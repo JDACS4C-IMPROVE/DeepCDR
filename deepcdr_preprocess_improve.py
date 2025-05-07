@@ -96,23 +96,30 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
 
 # [Req]
 def run(params: Dict):
-    """ Execute data pre-processing for GraphDRP model.
-
-    :params: Dict params: A dictionary of CANDLE/IMPROVE keywords and parsed values.
-    """
-
     # ----------------------------------------
     # [Req] Load omics data - and set index
     # ---------------------
     print("\nLoad omics data ...")
-    omics_obj = omics_utils.OmicsLoader(params)
-    ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
-    ge = ge.set_index('improve_sample_id')
-    mut = omics_obj.dfs['cancer_mutation_count.tsv'] 
-    mut = mut.set_index('improve_sample_id')
-    methyl = omics_obj.dfs['cancer_DNA_methylation.tsv']
-    methyl = methyl.set_index('improve_sample_id')
-
+    #omics_obj = omics_utils.OmicsLoader(params)
+    #ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
+    #ge = ge.set_index('improve_sample_id')
+    #mut = omics_obj.dfs['cancer_mutation_count.tsv'] 
+    #mut = mut.set_index('improve_sample_id')
+    #methyl = omics_obj.dfs['cancer_DNA_methylation.tsv']
+    #methyl = methyl.set_index('improve_sample_id')
+    ge = drp.get_cell_transcriptomics(file = params['cell_transcriptomic_file'], 
+                                        benchmark_dir = params['input_dir'], 
+                                        cell_column_name = params['canc_col_name'], 
+                                        norm = params['cell_transcriptomic_transform'])
+    mut = drp.get_cell_transcriptomics(file = params['cell_mutation_file'], 
+                                        benchmark_dir = params['input_dir'], 
+                                        cell_column_name = params['canc_col_name'], 
+                                        norm = params['cell_mutation_transform'])
+    methyl = drp.get_cell_transcriptomics(file = params['cell_methylation_file'], 
+                                        benchmark_dir = params['input_dir'], 
+                                        cell_column_name = params['canc_col_name'], 
+                                        norm = params['cell_methylation_transform'])
+    methyl = drp.change_gene_identifiers(data = methyl, data_type = 'methyl', identifier = 'Symbol')
     # impute missing values in methylation
     methyl = methyl.replace('     NA', np.nan)
     methyl = methyl.astype("float64")
@@ -128,19 +135,20 @@ def run(params: Dict):
     cancer_gen_mut_model.save(os.path.join(params["output_dir"],"cancer_gen_mut_model"))
     cancer_dna_methy_model.save(os.path.join(params["output_dir"], "cancer_dna_methy_model"))
 
-    
-
-
     # ------------------------------------------------------
     # [Req] Load drug data
     # ------------------------------------------------------
     print("\nLoad drugs data...")
-    drugs_obj = drugs_utils.DrugsLoader(params)
-    smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
+    #drugs_obj = drugs_utils.DrugsLoader(params)
+    #smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
+    smi = drp.get_drug_smiles(file = params['drug_smiles_file'], 
+                    benchmark_dir = params['input_dir'], 
+                    drug_column_name = params['drug_col_name'])
     # --------------------
 
     # reset index of the smiles file
     all_smiles = smi.reset_index()
+    all_smiles.columns = [params['drug_col_name'], 'canSMILES']
 
     # get the maximum number of atoms
     atom_list = []
@@ -191,13 +199,16 @@ def run(params: Dict):
         # [Req] Load response data
         # ------------------------
         
-        rsp = drp.DrugResponseLoader(params,
-                                     split_file=split_file,
-                                     verbose=False).dfs["response.tsv"]
+        #rsp = drp.DrugResponseLoader(params,
+        #                             split_file=split_file,
+        #                             verbose=False).dfs["response.tsv"]
+        rsp = drp.get_response_data(split_file=split_file, 
+                                benchmark_dir=params['input_dir'], 
+                                response_file=params['y_data_file'])
 
 
         # keep only the required columns in the dataframe
-        rsp = rsp[['improve_sample_id', 'improve_chem_id', 'auc']]
+        rsp = rsp[[params["canc_col_name"], params["drug_col_name"], params['y_col_name']]]
         # ------------------------
         # -----------------------
         # [Req] Save ML data files in params["ml_data_outdir"]
