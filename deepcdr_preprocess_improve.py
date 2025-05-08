@@ -137,27 +137,29 @@ def run(params: Dict):
 
     # reset index of the smiles file
     all_smiles = smi.reset_index()
-    all_smiles.columns = [params['drug_col_name'], 'canSMILES']
+    all_smiles.columns = ['improve_chem_id', 'canSMILES']
 
     # get the maximum number of atoms
     atom_list = []
     valid_smi = []
     valid_ids = []
-    for i, smiles in enumerate(all_smiles["canSMILES"].values):
+    for i, row in all_smiles.iterrows():
         try:
             molecules=[]
-            molecules.append(Chem.MolFromSmiles(smiles))
+            molecules.append(Chem.MolFromSmiles(row['canSMILES']))
             featurizer = dc.feat.graph_features.ConvMolFeaturizer()
             mol_object = featurizer.featurize(molecules)
             features = mol_object[0].atom_features
             atom_list.append(features.shape[0])
-            valid_smi = valid_smi + [smiles]
-            valid_ids = valid_ids + [all_smiles.iloc[0,i]]
-        except:
-            print(f"Invalid SMILE string {smiles}, removing from analysis.")
+            valid_smi = valid_smi + [row['canSMILES']]
+            valid_ids = valid_ids + [row['improve_chem_id']]
+        except AttributeError as e:
+            print(f"Invalid SMILE string {row['canSMILES']}, ID is {row['improve_chem_id']}, removing from analysis.")
 
     Max_atoms = np.max(atom_list)
-    valid_smiles = pd.DataFrame({params['drug_col_name']: valid_ids, 'canSMILES': valid_smi})
+    print("length valid_smi", len(valid_smi))
+    print("length valid_ids", len(valid_ids))
+    valid_smiles = pd.DataFrame({'improve_chem_id': valid_ids, 'canSMILES': valid_smi})
     print("VALID_SMILES", valid_smiles)
     dict_features = {}
     dict_adj_mat = {}
@@ -168,7 +170,7 @@ def run(params: Dict):
         featurizer = dc.feat.graph_features.ConvMolFeaturizer()
         mol_object = featurizer.featurize(molecules)
         features = mol_object[0].atom_features
-        drug_id_cur = valid_smiles.iloc[i,:][params['drug_col_name']]
+        drug_id_cur = valid_smiles.iloc[i,:]['improve_chem_id']
         adj_list = mol_object[0].canon_adj_list
         l = CalculateGraphFeat(features,adj_list, Max_atoms, israndom = False)
         dict_features[str(drug_id_cur)] = l[0]
