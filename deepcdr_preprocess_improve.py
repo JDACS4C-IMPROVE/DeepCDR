@@ -94,6 +94,10 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
 
 # [Req]
 def run(params: Dict):
+    response_all = drp.get_all_response_data(train_split_file = params['train_split_file'], 
+                                             val_split_file = params['val_split_file'], 
+                                             test_split_file = params['test_split_file'], 
+                                             benchmark_dir = params['input_dir'])
     # ----------------------------------------
     # [Req] Load omics data - and set index
     # ---------------------
@@ -115,6 +119,10 @@ def run(params: Dict):
     methyl = methyl.replace('     NA', np.nan)
     methyl = methyl.astype("float64")
     methyl = methyl.fillna(methyl.mean())
+
+    ge = ge[ge.index.isin(response_all[params['canc_col_name']])]
+    mut = mut[mut.index.isin(response_all[params['canc_col_name']])]
+    methyl = methyl[methyl.index.isin(response_all[params['canc_col_name']])]
 
     # get the embedding models
     cancer_gen_expr_model = get_emb_models(ge, norm = True)
@@ -138,6 +146,7 @@ def run(params: Dict):
     # reset index of the smiles file
     all_smiles = smi.reset_index()
     all_smiles.columns = ['improve_chem_id', 'canSMILES']
+    all_smiles = all_smiles[all_smiles['improve_chem_id'].isin(response_all[params['drug_col_name']])]
 
     # get the maximum number of atoms
     atom_list = []
@@ -197,20 +206,19 @@ def run(params: Dict):
         # ------------------------
         # [Req] Load response data
         # ------------------------
+        print(f"Response for stage {stage}.")
         rsp = drp.get_response_data(split_file=split_file, 
                                 benchmark_dir=params['input_dir'], 
                                 response_file=params['y_data_file'])
-
+        print("Number of responses before filtering:", len(rsp))
+        rsp = rsp[rsp[params['drug_col_name']].isin(valid_smiles['improve_chem_id'])]
+        rsp = rsp[rsp[params['canc_col_name']].isin(ge.index.to_list())]
+        rsp = rsp[rsp[params['canc_col_name']].isin(mut.index.to_list())]
+        rsp = rsp[rsp[params['canc_col_name']].isin(methyl.index.to_list())]
+        print("Number of responses after filtering for valid features:", len(rsp))
 
         # keep only the required columns in the dataframe
         rsp = rsp[[params["canc_col_name"], params["drug_col_name"], params['y_col_name']]]
-        # ------------------------
-        # -----------------------
-        # [Req] Save ML data files in params["ml_data_outdir"]
-        # The implementation of this step, depends on the model.
-        # -----------------------
-        # Give a name to the response file
-        data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
 
         # # [Req] Save y dataframe for the current stage
         frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
