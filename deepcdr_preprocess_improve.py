@@ -171,10 +171,7 @@ def run(params: Dict):
             print(f"Invalid SMILE string {row['canSMILES']}, ID is {row['improve_chem_id']}, removing from analysis.")
 
     Max_atoms = np.max(atom_list)
-    print("length valid_smi", len(valid_smi))
-    print("length valid_ids", len(valid_ids))
     valid_smiles = pd.DataFrame({'improve_chem_id': valid_ids, 'canSMILES': valid_smi})
-    print("VALID_SMILES", valid_smiles)
     dict_features = {}
     dict_adj_mat = {}
     for i, smiles in enumerate(valid_smiles["canSMILES"].values):
@@ -237,7 +234,7 @@ def main(args):
     )
     timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)
-    timer_preprocess.save_timer(params["output_dir"], extra_dict={"stage": "train"})
+    timer_preprocess.save_timer(params["output_dir"], extra_dict={"stage": "preprocess"})
     print("\nFinished data preprocessing.")
 
 # [Req]

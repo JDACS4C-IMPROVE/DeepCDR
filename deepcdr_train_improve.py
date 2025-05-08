@@ -261,29 +261,17 @@ def run(params: Dict):
 
     return val_scores
 
-# [Req]
-def initialize_parameters():
-    """This initialize_parameters() is define this way to support Supervisor
-    workflows such as HPO.
-
-    Returns:
-        dict: dict of IMPROVE/CANDLE parameters and parsed values.
-    """
-    # [Req] Initialize parameters
-    additional_definitions = train_params
-    cfg = DRPTrainConfig()
-    params = cfg.initialize_parameters(
-          pathToModelDir=filepath,
-        default_config="deepcdr_params.txt",
-        additional_definitions=additional_definitions)
-    return params
-
 
 # [Req]
 def main(args):
     # [Req]
-    params = initialize_parameters()
+    cfg = DRPTrainConfig()
+    params = cfg.initialize_parameters(pathToModelDir=filepath,
+                                       default_config="deepcdr_params.txt",
+                                       additional_definitions=train_params)
+    timer_train = frm.Timer()
     val_scores = run(params)
+    timer_train.save_timer(params["output_dir"], extra_dict={"stage": "train"})
     print("\nFinished training model.")
 
 
