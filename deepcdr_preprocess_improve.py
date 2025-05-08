@@ -98,13 +98,6 @@ def run(params: Dict):
     # [Req] Load omics data - and set index
     # ---------------------
     print("\nLoad omics data ...")
-    #omics_obj = omics_utils.OmicsLoader(params)
-    #ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
-    #ge = ge.set_index('improve_sample_id')
-    #mut = omics_obj.dfs['cancer_mutation_count.tsv'] 
-    #mut = mut.set_index('improve_sample_id')
-    #methyl = omics_obj.dfs['cancer_DNA_methylation.tsv']
-    #methyl = methyl.set_index('improve_sample_id')
     ge = drp.get_cell_transcriptomics(file = params['cell_transcriptomic_file'], 
                                         benchmark_dir = params['input_dir'], 
                                         cell_column_name = params['canc_col_name'], 
@@ -137,8 +130,6 @@ def run(params: Dict):
     # [Req] Load drug data
     # ------------------------------------------------------
     print("\nLoad drugs data...")
-    #drugs_obj = drugs_utils.DrugsLoader(params)
-    #smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
     smi = drp.get_drug_smiles(file = params['drug_smiles_file'], 
                     benchmark_dir = params['input_dir'], 
                     drug_column_name = params['drug_col_name'])
@@ -150,26 +141,34 @@ def run(params: Dict):
 
     # get the maximum number of atoms
     atom_list = []
+    valid_smi = []
+    valid_ids = []
     for i, smiles in enumerate(all_smiles["canSMILES"].values):
-        molecules=[]
-        molecules.append(Chem.MolFromSmiles(smiles))
-        featurizer = dc.feat.graph_features.ConvMolFeaturizer()
-        mol_object = featurizer.featurize(molecules)
-        features = mol_object[0].atom_features
-        atom_list.append(features.shape[0])
+        try:
+            molecules=[]
+            molecules.append(Chem.MolFromSmiles(smiles))
+            featurizer = dc.feat.graph_features.ConvMolFeaturizer()
+            mol_object = featurizer.featurize(molecules)
+            features = mol_object[0].atom_features
+            atom_list.append(features.shape[0])
+            valid_smi = valid_smi + [smiles]
+            valid_ids = valid_ids + [all_smiles.iloc[0,i]]
+        except:
+            print(f"Invalid SMILE string {smiles}, removing from analysis.")
 
     Max_atoms = np.max(atom_list)
-
+    valid_smiles = pd.DataFrame({params['drug_col_name']: valid_ids, 'canSMILES': valid_smi})
+    print("VALID_SMILES", valid_smiles)
     dict_features = {}
     dict_adj_mat = {}
-    for i, smiles in enumerate(all_smiles["canSMILES"].values):
+    for i, smiles in enumerate(valid_smiles["canSMILES"].values):
     # print(each)
         molecules=[]
         molecules.append(Chem.MolFromSmiles(smiles))
         featurizer = dc.feat.graph_features.ConvMolFeaturizer()
         mol_object = featurizer.featurize(molecules)
         features = mol_object[0].atom_features
-        drug_id_cur = all_smiles.iloc[i,:]["improve_chem_id"]
+        drug_id_cur = valid_smiles.iloc[i,:][params['drug_col_name']]
         adj_list = mol_object[0].canon_adj_list
         l = CalculateGraphFeat(features,adj_list, Max_atoms, israndom = False)
         dict_features[str(drug_id_cur)] = l[0]
@@ -196,10 +195,6 @@ def run(params: Dict):
         # ------------------------
         # [Req] Load response data
         # ------------------------
-        
-        #rsp = drp.DrugResponseLoader(params,
-        #                             split_file=split_file,
-        #                             verbose=False).dfs["response.tsv"]
         rsp = drp.get_response_data(split_file=split_file, 
                                 benchmark_dir=params['input_dir'], 
                                 response_file=params['y_data_file'])
