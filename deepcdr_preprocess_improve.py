@@ -235,7 +235,9 @@ def main(args):
         default_config="deepcdr_params.txt",
         additional_definitions=additional_definitions
     )
+    timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)
+    timer_preprocess.save_timer(params["output_dir"], extra_dict={"stage": "train"})
     print("\nFinished data preprocessing.")
 
 # [Req]
