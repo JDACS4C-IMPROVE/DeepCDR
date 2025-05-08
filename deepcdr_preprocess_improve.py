@@ -94,13 +94,14 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
 
 # [Req]
 def run(params: Dict):
+    # -------------------------------------------------------------------
+    # [Req] Load x and y data and subset to features present in y data
+    # -------------------------------------------------------------------
     response_all = drp.get_all_response_data(train_split_file = params['train_split_file'], 
                                              val_split_file = params['val_split_file'], 
                                              test_split_file = params['test_split_file'], 
                                              benchmark_dir = params['input_dir'])
-    # ----------------------------------------
-    # [Req] Load omics data - and set index
-    # ---------------------
+
     print("\nLoad omics data ...")
     ge = drp.get_cell_transcriptomics(file = params['cell_transcriptomic_file'], 
                                         benchmark_dir = params['input_dir'], 
@@ -124,6 +125,20 @@ def run(params: Dict):
     mut = mut[mut.index.isin(response_all[params['canc_col_name']])]
     methyl = methyl[methyl.index.isin(response_all[params['canc_col_name']])]
 
+    print("\nLoad drugs data...")
+    smi = drp.get_drug_smiles(file = params['drug_smiles_file'], 
+                    benchmark_dir = params['input_dir'], 
+                    drug_column_name = params['drug_col_name'])
+
+    # reset index of the smiles file
+    all_smiles = smi.reset_index()
+    all_smiles.columns = ['improve_chem_id', 'canSMILES']
+    all_smiles = all_smiles[all_smiles['improve_chem_id'].isin(response_all[params['drug_col_name']])]
+
+    # -------------------------------------------------------------------
+    # [Req] Process x data - omics features
+    # -------------------------------------------------------------------
+
     # get the embedding models
     cancer_gen_expr_model = get_emb_models(ge, norm = True)
     cancer_gen_mut_model = get_emb_models(mut, norm = True)
@@ -134,19 +149,9 @@ def run(params: Dict):
     cancer_gen_mut_model.save(os.path.join(params["output_dir"],"cancer_gen_mut_model"))
     cancer_dna_methy_model.save(os.path.join(params["output_dir"], "cancer_dna_methy_model"))
 
-    # ------------------------------------------------------
-    # [Req] Load drug data
-    # ------------------------------------------------------
-    print("\nLoad drugs data...")
-    smi = drp.get_drug_smiles(file = params['drug_smiles_file'], 
-                    benchmark_dir = params['input_dir'], 
-                    drug_column_name = params['drug_col_name'])
-    # --------------------
-
-    # reset index of the smiles file
-    all_smiles = smi.reset_index()
-    all_smiles.columns = ['improve_chem_id', 'canSMILES']
-    all_smiles = all_smiles[all_smiles['improve_chem_id'].isin(response_all[params['drug_col_name']])]
+    # -------------------------------------------------------------------
+    # [Req] Process x data - drug features
+    # -------------------------------------------------------------------
 
     # get the maximum number of atoms
     atom_list = []
@@ -192,20 +197,15 @@ def run(params: Dict):
     with open(os.path.join(params["output_dir"], "norm_adj_mat.pickle"), "wb") as f:
         pickle.dump(dict_adj_mat, f)
 
-    # -------------------------------------------
-    # Construct ML data for every stage (train, val, test)
-    # [Req] All models must load response data (y data) using DrugResponseLoader().
-    # -------------------------------------------
+    # -------------------------------------------------------------------
+    # [Req] Construct data for each stage
+    # -------------------------------------------------------------------
     stages = {"train": params["train_split_file"],
               "val": params["val_split_file"],
               "test": params["test_split_file"]}
 
 
     for stage, split_file in stages.items():
-
-        # ------------------------
-        # [Req] Load response data
-        # ------------------------
         print(f"Response for stage {stage}.")
         rsp = drp.get_response_data(split_file=split_file, 
                                 benchmark_dir=params['input_dir'], 
