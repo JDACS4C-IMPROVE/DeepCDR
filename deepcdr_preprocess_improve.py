@@ -2,8 +2,6 @@ import tensorflow as tf
 import pickle
 import numpy as np
 import pandas as pd
-#from sklearn.metrics import mean_squared_error
-#from scipy.stats import pearsonr
 import scipy.sparse as sp
 from rdkit import Chem
 import deepchem as dc
@@ -11,16 +9,13 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict
-import joblib
+import random
 from sklearn.preprocessing import StandardScaler
 
-# # device ID
-# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 # [Req] IMPROVE imports
 # Core improvelib imports
 from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
-from improvelib.utils import str2bool
 import improvelib.utils as frm
 # Application-specific (DRP) imports
 import improvelib.applications.drug_response_prediction.drp_utils as drp
