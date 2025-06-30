@@ -92,24 +92,21 @@ def run(params: Dict):
     # -------------------------------------------------------------------
     # [Req] Load x and y data and subset to features present in y data
     # -------------------------------------------------------------------
-    response_all = drp.get_all_response_data(train_split_file = params['train_split_file'], 
+    response_all = frm.get_all_response_data(train_split_file = params['train_split_file'], 
                                              val_split_file = params['val_split_file'], 
                                              test_split_file = params['test_split_file'], 
                                              benchmark_dir = params['input_dir'])
 
     print("\nLoad omics data ...")
-    ge = drp.get_cell_transcriptomics(file = params['cell_transcriptomic_file'], 
-                                        benchmark_dir = params['input_dir'], 
-                                        cell_column_name = params['canc_col_name'], 
-                                        norm = params['cell_transcriptomic_transform'])
-    mut = drp.get_cell_mutations(file = params['cell_mutation_file'], 
-                                        benchmark_dir = params['input_dir'], 
-                                        cell_column_name = params['canc_col_name'], 
-                                        norm = params['cell_mutation_transform'])
-    methyl = drp.get_cell_methylation(file = params['cell_methylation_file'], 
-                                        benchmark_dir = params['input_dir'], 
-                                        cell_column_name = params['canc_col_name'], 
-                                        norm = params['cell_methylation_transform'])
+    ge = frm.get_x_data(file = params['cell_transcriptomic_file'], 
+                        benchmark_dir = params['input_dir'], 
+                        column_name = params['canc_col_name'])
+    mut = frm.get_x_data(file = params['cell_mutation_file'], 
+                         benchmark_dir = params['input_dir'], 
+                         column_name = params['canc_col_name'])
+    methyl = frm.get_x_data(file = params['cell_methylation_file'], 
+                            benchmark_dir = params['input_dir'], 
+                            column_name = params['canc_col_name'])
     methyl = drp.change_gene_identifiers(data = methyl, data_type = 'methyl', identifier = 'Symbol')
     # impute missing values in methylation
     methyl = methyl.replace('     NA', np.nan)
@@ -121,9 +118,9 @@ def run(params: Dict):
     methyl = methyl[methyl.index.isin(response_all[params['canc_col_name']])]
 
     print("\nLoad drugs data...")
-    smi = drp.get_drug_smiles(file = params['drug_smiles_file'], 
-                    benchmark_dir = params['input_dir'], 
-                    drug_column_name = params['drug_col_name'])
+    smi = frm.get_x_data(file = params['drug_smiles_file'], 
+                         benchmark_dir = params['input_dir'], 
+                         column_name = params['drug_col_name'])
 
     # reset index of the smiles file
     all_smiles = smi.reset_index()
@@ -199,9 +196,9 @@ def run(params: Dict):
 
     for stage, split_file in stages.items():
         print(f"Response for stage {stage}.")
-        rsp = drp.get_response_data(split_file=split_file, 
-                                benchmark_dir=params['input_dir'], 
-                                response_file=params['y_data_file'])
+        rsp = frm.get_x_data(split_file=split_file, 
+                             benchmark_dir=params['input_dir'], 
+                             y_data_file=params['y_data_file'])
         print("Number of responses before filtering:", len(rsp))
         rsp = rsp[rsp[params['drug_col_name']].isin(valid_smiles['improve_chem_id'])]
         rsp = rsp[rsp[params['canc_col_name']].isin(ge.index.to_list())]
