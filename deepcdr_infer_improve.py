@@ -113,7 +113,7 @@ def run(params):
 def main(args):
     cfg = DRPInferConfig()
     params = cfg.initialize_parameters(pathToModelDir=filepath,
-                                       default_config="deepcdr_params.txt",
+                                       default_config="deepcdr_params.ini",
                                        additional_definitions=infer_params)
     timer_infer = frm.Timer()
     status = run(params)

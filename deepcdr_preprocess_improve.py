@@ -8,7 +8,6 @@ import deepchem as dc
 import os
 import sys
 from pathlib import Path
-from typing import Dict
 import random
 from sklearn.preprocessing import StandardScaler
 
@@ -88,7 +87,7 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
     return [feat,adj_mat]
 
 # [Req]
-def run(params: Dict):
+def run(params):
     # -------------------------------------------------------------------
     # [Req] Load x and y data and subset to features present in y data
     # -------------------------------------------------------------------
@@ -218,7 +217,7 @@ def run(params: Dict):
 def main(args):
     cfg = DRPPreprocessConfig()
     params = cfg.initialize_parameters(pathToModelDir=filepath,
-                                       default_config="deepcdr_params.txt",
+                                       default_config="deepcdr_params.ini",
                                        additional_definitions=preprocess_params)
     timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)

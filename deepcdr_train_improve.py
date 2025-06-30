@@ -266,7 +266,7 @@ def run(params: Dict):
 def main(args):
     cfg = DRPTrainConfig()
     params = cfg.initialize_parameters(pathToModelDir=filepath,
-                                       default_config="deepcdr_params.txt",
+                                       default_config="deepcdr_params.ini",
                                        additional_definitions=train_params)
     timer_train = frm.Timer()
     val_scores = run(params)
