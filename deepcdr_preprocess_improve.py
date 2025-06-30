@@ -196,7 +196,7 @@ def run(params: Dict):
 
     for stage, split_file in stages.items():
         print(f"Response for stage {stage}.")
-        rsp = frm.get_x_data(split_file=split_file, 
+        rsp = frm.get_y_data(split_file=split_file, 
                              benchmark_dir=params['input_dir'], 
                              y_data_file=params['y_data_file'])
         print("Number of responses before filtering:", len(rsp))
