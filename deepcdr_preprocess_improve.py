@@ -2,8 +2,8 @@ import tensorflow as tf
 import pickle
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
-from scipy.stats import pearsonr
+#from sklearn.metrics import mean_squared_error
+#from scipy.stats import pearsonr
 import scipy.sparse as sp
 from rdkit import Chem
 import deepchem as dc
@@ -224,17 +224,15 @@ def run(params: Dict):
 
 # [Req]
 def main(args):
-    # [Req]
-    additional_definitions = preprocess_params
     cfg = DRPPreprocessConfig()
-    params = cfg.initialize_parameters(
-        pathToModelDir=filepath,
-        default_config="deepcdr_params.txt",
-        additional_definitions=additional_definitions
-    )
+    params = cfg.initialize_parameters(pathToModelDir=filepath,
+                                       default_config="deepcdr_params.txt",
+                                       additional_definitions=preprocess_params)
     timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)
-    timer_preprocess.save_timer(params["output_dir"], extra_dict={"stage": "preprocess"})
+    timer_preprocess.save_timer(dir_to_save=params["output_dir"], 
+                                filename='runtime_preprocess.json', 
+                                extra_dict={"stage": "preprocess"})
     print("\nFinished data preprocessing.")
 
 # [Req]
