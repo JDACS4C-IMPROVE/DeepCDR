@@ -2,29 +2,21 @@ import tensorflow as tf
 import pickle
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
-from scipy.stats import pearsonr
 import scipy.sparse as sp
 from rdkit import Chem
 import deepchem as dc
 import os
 import sys
 from pathlib import Path
-from typing import Dict
-import joblib
+import random
 from sklearn.preprocessing import StandardScaler
 
-# # device ID
-# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 
 # [Req] IMPROVE imports
 # Core improvelib imports
 from improvelib.applications.drug_response_prediction.config import DRPPreprocessConfig
-from improvelib.utils import str2bool
 import improvelib.utils as frm
 # Application-specific (DRP) imports
-import improvelib.applications.drug_response_prediction.drug_utils as drugs_utils
-import improvelib.applications.drug_response_prediction.omics_utils as omics_utils
 import improvelib.applications.drug_response_prediction.drp_utils as drp
 
 # Model-specific imports
@@ -95,28 +87,48 @@ def CalculateGraphFeat(feat_mat,adj_list, Max_atoms, israndom = False):
     return [feat,adj_mat]
 
 # [Req]
-def run(params: Dict):
-    """ Execute data pre-processing for GraphDRP model.
+def run(params):
+    # -------------------------------------------------------------------
+    # [Req] Load x and y data and subset to features present in y data
+    # -------------------------------------------------------------------
+    response_all = frm.get_all_response_data(train_split_file = params['train_split_file'], 
+                                             val_split_file = params['val_split_file'], 
+                                             test_split_file = params['test_split_file'], 
+                                             benchmark_dir = params['input_dir'])
 
-    :params: Dict params: A dictionary of CANDLE/IMPROVE keywords and parsed values.
-    """
-
-    # ----------------------------------------
-    # [Req] Load omics data - and set index
-    # ---------------------
     print("\nLoad omics data ...")
-    omics_obj = omics_utils.OmicsLoader(params)
-    ge = omics_obj.dfs['cancer_gene_expression.tsv'] 
-    ge = ge.set_index('improve_sample_id')
-    mut = omics_obj.dfs['cancer_mutation_count.tsv'] 
-    mut = mut.set_index('improve_sample_id')
-    methyl = omics_obj.dfs['cancer_DNA_methylation.tsv']
-    methyl = methyl.set_index('improve_sample_id')
-
+    ge = frm.get_x_data(file = params['cell_transcriptomic_file'], 
+                        benchmark_dir = params['input_dir'], 
+                        column_name = params['canc_col_name'])
+    mut = frm.get_x_data(file = params['cell_mutation_file'], 
+                         benchmark_dir = params['input_dir'], 
+                         column_name = params['canc_col_name'])
+    methyl = frm.get_x_data(file = params['cell_methylation_file'], 
+                            benchmark_dir = params['input_dir'], 
+                            column_name = params['canc_col_name'])
+    methyl = drp.change_gene_identifiers(data = methyl, data_type = 'methyl', identifier = 'Symbol')
     # impute missing values in methylation
     methyl = methyl.replace('     NA', np.nan)
     methyl = methyl.astype("float64")
     methyl = methyl.fillna(methyl.mean())
+
+    ge = ge[ge.index.isin(response_all[params['canc_col_name']])]
+    mut = mut[mut.index.isin(response_all[params['canc_col_name']])]
+    methyl = methyl[methyl.index.isin(response_all[params['canc_col_name']])]
+
+    print("\nLoad drugs data...")
+    smi = frm.get_x_data(file = params['drug_smiles_file'], 
+                         benchmark_dir = params['input_dir'], 
+                         column_name = params['drug_col_name'])
+
+    # reset index of the smiles file
+    all_smiles = smi.reset_index()
+    all_smiles.columns = ['improve_chem_id', 'canSMILES']
+    all_smiles = all_smiles[all_smiles['improve_chem_id'].isin(response_all[params['drug_col_name']])]
+
+    # -------------------------------------------------------------------
+    # [Req] Process x data - omics features
+    # -------------------------------------------------------------------
 
     # get the embedding models
     cancer_gen_expr_model = get_emb_models(ge, norm = True)
@@ -128,42 +140,39 @@ def run(params: Dict):
     cancer_gen_mut_model.save(os.path.join(params["output_dir"],"cancer_gen_mut_model"))
     cancer_dna_methy_model.save(os.path.join(params["output_dir"], "cancer_dna_methy_model"))
 
-    
-
-
-    # ------------------------------------------------------
-    # [Req] Load drug data
-    # ------------------------------------------------------
-    print("\nLoad drugs data...")
-    drugs_obj = drugs_utils.DrugsLoader(params)
-    smi = drugs_obj.dfs['drug_SMILES.tsv']  # get only the SMILES data
-    # --------------------
-
-    # reset index of the smiles file
-    all_smiles = smi.reset_index()
+    # -------------------------------------------------------------------
+    # [Req] Process x data - drug features
+    # -------------------------------------------------------------------
 
     # get the maximum number of atoms
     atom_list = []
-    for i, smiles in enumerate(all_smiles["canSMILES"].values):
-        molecules=[]
-        molecules.append(Chem.MolFromSmiles(smiles))
-        featurizer = dc.feat.graph_features.ConvMolFeaturizer()
-        mol_object = featurizer.featurize(molecules)
-        features = mol_object[0].atom_features
-        atom_list.append(features.shape[0])
+    valid_smi = []
+    valid_ids = []
+    for i, row in all_smiles.iterrows():
+        try:
+            molecules=[]
+            molecules.append(Chem.MolFromSmiles(row['canSMILES']))
+            featurizer = dc.feat.graph_features.ConvMolFeaturizer()
+            mol_object = featurizer.featurize(molecules)
+            features = mol_object[0].atom_features
+            atom_list.append(features.shape[0])
+            valid_smi = valid_smi + [row['canSMILES']]
+            valid_ids = valid_ids + [row['improve_chem_id']]
+        except AttributeError as e:
+            print(f"Invalid SMILE string {row['canSMILES']}, ID is {row['improve_chem_id']}, removing from analysis.")
 
     Max_atoms = np.max(atom_list)
-
+    valid_smiles = pd.DataFrame({'improve_chem_id': valid_ids, 'canSMILES': valid_smi})
     dict_features = {}
     dict_adj_mat = {}
-    for i, smiles in enumerate(all_smiles["canSMILES"].values):
+    for i, smiles in enumerate(valid_smiles["canSMILES"].values):
     # print(each)
         molecules=[]
         molecules.append(Chem.MolFromSmiles(smiles))
         featurizer = dc.feat.graph_features.ConvMolFeaturizer()
         mol_object = featurizer.featurize(molecules)
         features = mol_object[0].atom_features
-        drug_id_cur = all_smiles.iloc[i,:]["improve_chem_id"]
+        drug_id_cur = valid_smiles.iloc[i,:]['improve_chem_id']
         adj_list = mol_object[0].canon_adj_list
         l = CalculateGraphFeat(features,adj_list, Max_atoms, israndom = False)
         dict_features[str(drug_id_cur)] = l[0]
@@ -176,35 +185,28 @@ def run(params: Dict):
     with open(os.path.join(params["output_dir"], "norm_adj_mat.pickle"), "wb") as f:
         pickle.dump(dict_adj_mat, f)
 
-    # -------------------------------------------
-    # Construct ML data for every stage (train, val, test)
-    # [Req] All models must load response data (y data) using DrugResponseLoader().
-    # -------------------------------------------
+    # -------------------------------------------------------------------
+    # [Req] Construct data for each stage
+    # -------------------------------------------------------------------
     stages = {"train": params["train_split_file"],
               "val": params["val_split_file"],
               "test": params["test_split_file"]}
 
 
     for stage, split_file in stages.items():
-
-        # ------------------------
-        # [Req] Load response data
-        # ------------------------
-        
-        rsp = drp.DrugResponseLoader(params,
-                                     split_file=split_file,
-                                     verbose=False).dfs["response.tsv"]
-
+        print(f"Response for stage {stage}.")
+        rsp = frm.get_y_data(split_file=split_file, 
+                             benchmark_dir=params['input_dir'], 
+                             y_data_file=params['y_data_file'])
+        print("Number of responses before filtering:", len(rsp))
+        rsp = rsp[rsp[params['drug_col_name']].isin(valid_smiles['improve_chem_id'])]
+        rsp = rsp[rsp[params['canc_col_name']].isin(ge.index.to_list())]
+        rsp = rsp[rsp[params['canc_col_name']].isin(mut.index.to_list())]
+        rsp = rsp[rsp[params['canc_col_name']].isin(methyl.index.to_list())]
+        print("Number of responses after filtering for valid features:", len(rsp))
 
         # keep only the required columns in the dataframe
-        rsp = rsp[['improve_sample_id', 'improve_chem_id', 'auc']]
-        # ------------------------
-        # -----------------------
-        # [Req] Save ML data files in params["ml_data_outdir"]
-        # The implementation of this step, depends on the model.
-        # -----------------------
-        # Give a name to the response file
-        data_fname = frm.build_ml_data_file_name(data_format=params["data_format"], stage=stage)
+        rsp = rsp[[params["canc_col_name"], params["drug_col_name"], params['y_col_name']]]
 
         # # [Req] Save y dataframe for the current stage
         frm.save_stage_ydf(ydf=rsp, stage=stage, output_dir=params["output_dir"])
@@ -213,15 +215,15 @@ def run(params: Dict):
 
 # [Req]
 def main(args):
-    # [Req]
-    additional_definitions = preprocess_params
     cfg = DRPPreprocessConfig()
-    params = cfg.initialize_parameters(
-        pathToModelDir=filepath,
-        default_config="deepcdr_params.txt",
-        additional_definitions=additional_definitions
-    )
+    params = cfg.initialize_parameters(pathToModelDir=filepath,
+                                       default_config="deepcdr_params.ini",
+                                       additional_definitions=preprocess_params)
+    timer_preprocess = frm.Timer()
     ml_data_outdir = run(params)
+    timer_preprocess.save_timer(dir_to_save=params["output_dir"], 
+                                filename='runtime_preprocess.json', 
+                                extra_dict={"stage": "preprocess"})
     print("\nFinished data preprocessing.")
 
 # [Req]
